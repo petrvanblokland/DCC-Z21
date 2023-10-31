@@ -220,6 +220,37 @@ class Z21:
             )
     status = property(_get_status)
 
+    def _get_hwInfo(self):
+        """Answer a tuple with the hardward/firmware type of the control center.
+        HwType:
+        #define D_HWT_Z21_OLD 0x00000200 // „black Z21” (hardware variant from 2012)
+        #define D_HWT_Z21_NEW 0x00000201 // „black Z21”(hardware variant from 2013) (Also DR5000?)
+        #define D_HWT_SMARTRAIL 0x00000202 // SmartRail (from 2012)
+        #define D_HWT_z21_SMALL 0x00000203 // „white z21” starter set variant (from 2013)
+        #define D_HWT_z21_START 0x00000204 // „z21 start” starter set variant (from 2016)
+        #define D_HWT_SINGLE_BOOSTER 0x00000205 // 10806 „Z21 Single Booster” (zLink)
+        #define D_HWT_DUAL_BOOSTER 0x00000206 // 10807 „Z21 Dual Booster” (zLink)
+        #define D_HWT_Z21_XL 0x00000211 // 10870 „Z21 XL Series” (from 2020)
+        #define D_HWT_XL_BOOSTER 0x00000212 // 10869 „Z21 XL Booster” (from 2021, zLink)
+        #define D_HWT_Z21_SWITCH_DECODER 0x00000301 // 10836 „Z21 SwitchDecoder” (zLink)
+        #define D_HWT_Z21_SIGNAL_DECODER 0x00000302 // 10836 „Z21 SignalDecoder” (zLink)
+
+        The FW version is specified in BCD format.
+        Example:
+        0x0C 0x00 0x1A 0x00 0x00 0x02 0x00 0x00 0x20 0x01 0x00 0x00 means: „Hardware Type 0x200, Firmware Version 1.20“
+        To read out the version of an older firmware, use the alternative command
+        2.15 LAN_X_GET_FIRMWARE_VERSION. Apply following rules for older firmware versions:
+        • V1.10 ... Z21 (hardware variant from 2012)
+        • V1.11 ... Z21 (hardware variant from 2012)
+        • V1.12 ... SmartRail (from 2012)
+        """
+        self.send(self.LAN_GET_HWINFO)
+        bb = self.receiveBytes(12)
+        hwInfo = int.from_bytes(bb[4:8], BYTEORDER)
+        fwInfo = int.from_bytes(bb[8:12], BYTEORDER)
+        return hwInfo, fwInfo
+    hwInfo = property(_get_hwInfo)
+    
     def send(self, cmd):
         """Send the command to the LAN device."""
         self.s.send(cmd)
@@ -229,6 +260,9 @@ class Z21:
         incomingPacket = self.s.recv(1024) # Read packet from the Z21 device.
         return int.from_bytes(incomingPacket[4:], BYTEORDER) # Skip the package header
 
+    def receiveBytes(self, cnt):
+        return self.s.recv(cnt)
+        
     def close(self):
         """Close the socket LAN connection to the Z21 device."""
         self.s.close()
@@ -350,10 +384,17 @@ class LokSound5(Z21):
         self.send(cmd)
 
 if __name__ == "__main__":
+    def test1():
+
+        HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
+        z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
+        print('Hardware type: 0x%04x Firmware type: 0x%04x' %z21.hwInfo)
+        z21.close()
+        
     def test():
 
         HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-        z21 = Z21(HOST, verbose=True)
+        z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
         loco = 3
         print('Start Z21', z21)
         print('Version', z21.version)
@@ -373,8 +414,6 @@ if __name__ == "__main__":
         z21.wait(2)
         z21.locoFunction(loco, 12, False) # Horn
         
-        return
-
         z21.wait(3)
         #z21.locoFunction(loco, 0, True) # Turn on front/back headlight, depending on driving direction
         z21.locoDrive(loco, 70)
@@ -421,4 +460,4 @@ if __name__ == "__main__":
         z21.setTrackPowerOff()
         z21.close()
 
-    test()
+    test1()
