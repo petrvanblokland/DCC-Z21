@@ -246,11 +246,65 @@ class Z21:
         """
         self.send(self.LAN_GET_HWINFO)
         bb = self.receiveBytes(12)
-        hwInfo = int.from_bytes(bb[4:8], BYTEORDER)
-        fwInfo = int.from_bytes(bb[8:12], BYTEORDER)
+        hwInfo = int.from_bytes(bb[4:8], BIGORDER)
+        fwInfo = int.from_bytes(bb[8:12], BIGORDER)
         return hwInfo, fwInfo
     hwInfo = property(_get_hwInfo)
-    
+
+    NO_LOCK = 0x00
+    START_LOCKED = 0x01
+    START_UNLOCKED = 0x02
+
+    def _get_lanGetCode(self):
+        """Read the software feature scope of the Z21 (and z21 or z21start of course).
+        This command is of particular interest for the hardware variant "z21 start", in order to be able to check 
+        whether driving and switching via LAN is blocked or permitted.
+        #define Z21_NO_LOCK 0x00 // all features permitted
+        #define z21_START_LOCKED 0x01 // „z21 start”: driving and switching is blocked 
+        #define z21_START_UNLOCKED 0x02 // „z21 start”: driving and switching is permitted
+        """
+        self.send(self.LAN_GET_CODE)
+        bb = self.receiveBytes(5)
+        code = int.from_bytes(bb[4:], BIGORDER)
+        if code in (self.NO_LOCK, self.START_LOCKED, self.START_UNLOCKED):
+            return code
+        return None # Unknown code
+    lanGetCode = property(_get_lanGetCode)
+
+    LOCOMODE_DCC = 0
+    LOCOMODE_MM = 1
+
+    def getLocoMode(self, loco):
+        """Read the output format for a given locomotive address.
+        In the Z21, the output format (DCC, MM) is persistently stored for each locomotive 
+        address. A maximum of 256 different locomotive addresses can be stored. Each address >= 256 
+        is DCC automatically.
+
+        Loco Address Mode
+        0 ... DCC Format 
+        1 ... MM Format
+        """
+        cmd = self.LAN_GET_LOCOMODE + ADDRESS(loco)
+        cmd += XOR(cmd)
+        self.send(cmd)
+        bb = self.receiveBytes(7)
+        rLoco = int.from_bytes(bb[4:6], BIGORDER)
+        assert rLoco == loco # Should always be identical.
+        mode = int.from_bytes(bb[-1:], BIGORDER)
+        assert mode in (self.LOCOMODE_DCC, self.LOCOMODE_MM)
+        return mode
+
+    def setLocoMode(self, loco, mode):
+        """Set the output format for a given locomotive address. The format is stored in the Z21persistently.
+        Note: each locomotive address >= 256 is and remains "Format DCC" automatically.
+        Note: the speed steps (14, 28, 128) are also stored in the command station persistently. 
+        This automatically happens with the loco driving command, see 4.2 LAN_X_SET_LOCO_DRIVE
+        """
+        assert mode in (self.LOCOMODE_DCC, self.LOCOMODE_MM)
+        cmd = self.LAN_SET_LOCOMODE + ADDRESS(loco) + mode.to_bytes(1, BYTEORDER)
+        cmd += XOR(cmd)
+        self.send(cmd)
+
     def send(self, cmd):
         """Send the command to the LAN device."""
         self.s.send(cmd)
@@ -305,7 +359,7 @@ class Z21:
             if speed < 0:
                 speed = -speed
                 forward = not forward
-            speed = max(0, min(speed, 126))
+            speed = max(0, min(speed, ç126))
             if speed > 1: # Shift for extra E-stop on 0x01
                 speed += 1
             bSpeed = speed 
@@ -389,6 +443,12 @@ if __name__ == "__main__":
         HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
         z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
         print('Hardware type: 0x%04x Firmware type: 0x%04x' %z21.hwInfo)
+        print('Lan Code', z21.lanGetCode)
+        print('Loco mode', z21.getLocoMode(3))
+        z21.setLocoMode(3, z21.LOCOMODE_MM)
+        print('Loco mode MM', z21.getLocoMode(3))
+        z21.setLocoMode(3, z21.LOCOMODE_DCC)
+        print('Loco mode DCC', z21.getLocoMode(3))
         z21.close()
         
     def test():
@@ -461,3 +521,5 @@ if __name__ == "__main__":
         z21.close()
 
     test1()
+
+
