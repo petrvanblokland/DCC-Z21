@@ -33,9 +33,13 @@ def printCmd(sender, cmd):
         s += '%02X ' % b
     print(s)
 
-def ADDRESS(locoAddress):
-    """Convert a locoAddress integer into a 2-byte array"""
-    return locoAddress.to_bytes(2, BIG_ORDER)
+def loco2Bytes(loco):
+    """Convert a loco address integer into a 2-byte array"""
+    return loco.to_bytes(2, BIG_ORDER)
+
+def bytes2Loco(bb):
+    """Convert the 2-byte array to a loco address integer."""
+    return int.from_bytes(bb, BIG_ORDER)
 
 def XOR(b):
     """Answer the XOR-parity byte from the byte-array that is necessary for most Z21 commands."""
@@ -380,7 +384,7 @@ class Z21:
         0 ... DCC Format 
         1 ... MM Format
         """
-        cmd = self.LAN_GET_LOCOMODE + ADDRESS(loco)
+        cmd = self.LAN_GET_LOCOMODE + loco2Bytes(loco)
         cmd += XOR(cmd)
         self.send(cmd)
         bb = self.receiveBytes(7)
@@ -397,9 +401,43 @@ class Z21:
         This automatically happens with the loco driving command, see 4.2 LAN_X_SET_LOCO_DRIVE
         """
         assert mode in (self.LOCOMODE_DCC, self.LOCOMODE_MM)
-        cmd = self.LAN_SET_LOCOMODE + ADDRESS(loco) + mode.to_bytes(1, LITTLE_ORDER)
+        cmd = self.LAN_SET_LOCOMODE + loco2Bytes(loco) + mode.to_bytes(1, LITTLE_ORDER)
         cmd += XOR(cmd)
         self.send(cmd)
+
+    def getLocoInfo(self, loco):
+        """The following command can be used to poll the status of a locomotive. At the same time, 
+        the client also "subscribes" to the locomotive information for this locomotive address (only 
+        in combination with LAN_SET_BROADCASTFLAGS, Flag 0x00000001).
+        This method answers a dictionary with all binary flags placed by the key/value.
+
+        Note: loco address = (Adr_MSB & 0x3F) << 8 + Adr_LSB
+        For locomotive addresses ≥ 128, the two highest bits in DB1 must be set to 1:
+        DB1 = (0xC0 | Adr_MSB). For locomotive addresses < 128, these two highest bits have no meaning.
+        Reply from Z21: see 4.4 LAN_X_LOCO_INFO
+
+        LAN_X_LOCO_INFO
+        This message is sent from the Z21 to the clients in response to the command 4.1 LAN_X_GET_LOCO_INFO. 
+        However, it is also unsolicitedly sent to an associated client if
+            • the locomotive status has been changed by one of the (other) clients or handset controls
+            • and the associated client has activated the corresponding broadcast,
+                see 2.16 LAN_SET_BROADCASTFLAGS, Flag 0x00000001
+            • and the associated client has subscribed to the locomotive address with 4.1 LAN_X_GET_LOCO_INFO.
+        The actual packet length n may vary depending on the data actually sent, with 7 ≤ n ≤ 14.
+        From Z21 FW version 1.42 DataLen is ≥ 15 (n ≥ 8) for also transferring the status of F29, F30 and F31! 
+        """
+        cmd = self.LAN_X_GET_LOCO_INFO + loco2Bytes(loco)
+        cmd += XOR(cmd)
+        self.send(cmd)
+        # Result format: LAN_X_LOCO_INFO
+        bb = self.receiveBytes(1024) # Length of return package is not fixed.
+        if self.verbose:
+            printCmd('getLocoInfo ', cmd)
+            printCmd('getLocoInfo result ', bb)
+        info = dict(
+            loco=int.from_bytes(bb[5:7], BIG_ORDER) & 0x3f,
+        )
+        return info
 
     #   T R A C K  P O W E R 
 
@@ -452,7 +490,7 @@ class Z21:
 
         self.setHeadLight(loco, bool(speed not in (0, 1))) # If moving, independent from direction
 
-        cmd = self.LAN_X_SET_LOCO_DRIVE + speedSteps[steps].to_bytes(1, LITTLE_ORDER) + ADDRESS(loco) + bSpeed.to_bytes(1, LITTLE_ORDER)
+        cmd = self.LAN_X_SET_LOCO_DRIVE + speedSteps[steps].to_bytes(1, LITTLE_ORDER) + loco2Bytes(loco) + bSpeed.to_bytes(1, LITTLE_ORDER)
         cmd += XOR(cmd)
         if self.verbose:
             printCmd(f'locoDrive(loco={loco}, speed={speed} forward={forward}) cmd: ', cmd)
@@ -466,6 +504,15 @@ class Z21:
         @value in (0, False, 'off') --> off, 
         @value in (1, True, 'on') --> on
         @value in (-1, 'toggle') --> toggle
+
+        Note: loco address = (Adr_MSB & 0x3F) << 8 + Adr_LSB
+        For locomotive addresses ≥ 128, the two highest bits in DB1 must be set to 1:
+        DB1 = (0xC0 | Adr_MSB). For locomotive addresses < 128, these two highest bits have no meaning.
+        TT switch type: 00=off, 01=on, 10=toggle,11=not allowed NNNNNN Function index, 0x00=F0 (light), 0x01=F1 etc.
+        With Motorola MMI only F0 can be switched. With MMII, F0 to F4 can be used.
+        With DCC, F0 to F28 can be switched here. From Z21 FW version 1.42 the extended range from F0 to F31 can be used here.
+        Reply from Z21:
+        No standard reply, 4.4 LAN_X_LOCO_INFO to subscribed clients.
         """
         if value in (0, False, OFF):
             functionCode = 0x00 # TT = 00 --> off
@@ -476,7 +523,7 @@ class Z21:
         else:
             raise ValueError(f'locoFunction: Wrong value {value}')
         functionCode |= function
-        cmd = self.LAN_X_SET_LOCO_FUNCTION + ADDRESS(loco) + functionCode.to_bytes(1, LITTLE_ORDER)
+        cmd = self.LAN_X_SET_LOCO_FUNCTION + loco2Bytes(loco) + functionCode.to_bytes(1, LITTLE_ORDER)
         cmd += XOR(cmd)
         if self.verbose:
             printCmd(f'locoFunction(loco={loco}, function={function}, value={value}) cmd: ', cmd)
@@ -524,9 +571,9 @@ class Z21:
         """Read the @cvId value, assuming that the loco is on a programmaing track. No loco id is required.
         Note that this method corrects the id-offset, so instead of:
         CV-Address = (CVAdr_MSB << 8) + CVAdr_LSB, where 0=CV1, 1=CV2, 255=CV256, etc.
-        the @cvId is the true address: 1=CV1, 2=CV2, 256=CV256, etc.
+        the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
         """
-        cmd = self.LAN_X_CV_READ + ADDRESS(cvId-1) # Corrected address offset by 1
+        cmd = self.LAN_X_CV_READ + loco2Bytes(cvId-1) # Corrected address offset by 1
         cmd += XOR(cmd)
         self.send(cmd)
         printCmd('readCV cmd ', cmd)
@@ -537,9 +584,9 @@ class Z21:
         """Write the @cvId @value, assuming that the loco is on a programming track. No loco id is required.
         Note that this method corrects the id-offset, so instead of:
         CV-Address = (CVAdr_MSB << 8) + CVAdr_LSB, where 0=CV1, 1=CV2, 255=CV256, etc.
-        the @cvId is the true address: 1=CV1, 2=CV2, 256=CV256, etc.
+        the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
         """
-        cmd = self.LAN_X_CV_WRITE + ADDRESS(cvId-1) + cvValue.to_bytes(1, LITTLE_ORDER) # Corrected address offset by 1
+        cmd = self.LAN_X_CV_WRITE + loco2Bytes(cvId-1) + cvValue.to_bytes(1, LITTLE_ORDER) # Corrected address offset by 1
         cmd += XOR(cmd)
         self.send(cmd)
 
@@ -561,12 +608,13 @@ if __name__ == "__main__":
         HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
         z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
         z21.setTrackPowerOn()
+        print(z21.getLocoInfo(3))
         print('Hardware type: 0x%04x Firmware type: 0x%04x' %z21.hwInfo)
         print('Lan Code', z21.lanGetCode)
         print('Loco address', z21.getLocoAddress())
         printCmd('Get broadcast ', z21.getBroadcastFlags())
         z21.setBroadcastFlags(1)
-        print('Loco address', z21.readCV(1))
+        print('Loco address', z21.readCV(1), z21.getLocoAddress())
         printCmd('Get broadcast ', z21.getBroadcastFlags())
         print(z21.systemState)
         z21.setTrackPowerOff()
