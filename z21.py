@@ -110,7 +110,7 @@ class Z21:
     LAN_GET_BROADCASTFLAGS =        CMD(0x04, 0, 0x51, 0) # Z21: 2.17
 
     LAN_SYSTEMSTATE_DATACHANGED =   CMD(0x14, 0, 0x84, 0, 0) # Add 16 bytes data, Z21: 2.18
-    LAN_SYSTEMSTATE_GETDATA =       CMD(0x04, 0, 0x85, 0) # Z21: 2.19
+    LAN_SYSTEMSTATE_GETDATA =       CMD(0x04, 0, 0x85, 0) # Request the current system status. Z21: 2.19
     LAN_GET_HWINFO =                CMD(0x04, 0, 0x1A, 0) # Z21: 2.20
     LAN_GET_CODE =                  CMD(0x04, 0, 0x18, 0) # Z21: 2.21
 
@@ -329,13 +329,15 @@ class Z21:
         self.send(self.LAN_SYSTEMSTATE_GETDATA)
         bb = self.receiveBytes(20)
         
+        printCmd(f'System state (result) {len(bb)}: ', bb)
+
         centralState = int.from_bytes(bb[12:13], LITTLE_ORDER)
         centralStateEx = int.from_bytes(bb[13:14], LITTLE_ORDER)
         
         # SystemState.Capabilities provides an overview of the device's range of features.
-        #If SystemState.Capabilities == 0, then it can be assumed that the device has an older firmware version. 
+        # If SystemState.Capabilities == 0, then it can be assumed that the device has an older firmware version. 
         # SystemState.Capabilities should not be evaluated when using older firmware versions!
-        capabilities = int.from_bytes(bb[15:], LITTLE_ORDER)
+        capabilities = int.from_bytes(bb[15:16], LITTLE_ORDER)
         assert capabilities != 0  
 
         state = dict(
@@ -360,16 +362,16 @@ class Z21:
             capDCC=bool(capabilities & 0x01), # Capable of DCC
             capMM=bool(capabilities & 0x02), # Capable of MM
             #capReserved 0x04 reserved for future development
-            capRailCom=bool(capabilities & 0x04), # Railcom is active
-            capLocoCmds=bool(capabilities & 0x08), # Accepts LAN commands for locomotive decoders
-            capAccessoryCmds=bool(capabilities & 0x02), # Accepts LAN commands for assessory decoders
-            capDetectorCmds=bool(capabilities & 0x02), # Accepts LAN commands for detectors
-            capNeedsUnlockCode=bool(capabilities & 0x02), # Device needs activate code (z21start)
+            capRailCom=bool(capabilities & 0x08), # Railcom is active
+            capLocoCmds=bool(capabilities & 0x10), # Accepts LAN commands for locomotive decoders
+            capAccessoryCmds=bool(capabilities & 0x20), # Accepts LAN commands for assessory decoders
+            capDetectorCmds=bool(capabilities & 0x40), # Accepts LAN commands for detectors
+            capNeedsUnlockCode=bool(capabilities & 0x80), # Device needs activate code (z21start)
         )
         return state
     systemState = property(_get_systemState)
 
-    #   R E T R I E V E  L O C O  D A T A
+    #   R E T R I E V E  L O C O  D A T A   ( P O M )
 
     LOCOMODE_DCC = 0
     LOCOMODE_MM = 1
@@ -549,13 +551,8 @@ class Z21:
     CV_DECELERATION = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
     CV_MAXIMUM_SPEED = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
 
-    def setBroadcastFlags(self, d):
-        cmd = self.LAN_SET_BROADCASTFLAGS + 0x00000001.to_bytes(4, LITTLE_ORDER)
-        printCmd('setBroadcastFlags: ', cmd)
-        self.send(cmd)
-
-    def getBroadcastFlags(self):
-        """Answer the broadcast flags as dictionary with more readable Python values.
+    def _get_broadcastFlags(self):
+        """Answer the broadcast flags as dictionary with readable Python values.
         The dictionary can be used by self.setBroadcastFlags(flags), which packs the values 
         into the 32bits flags parameter.
         """
@@ -563,9 +560,17 @@ class Z21:
         self.send(cmd)
         bb = self.receiveBytes(8)
         flagsInt = int.from_bytes(bb[4:], LITTLE_ORDER)
-
+        d = {}
         printCmd('Broadcast flags: ', bb[4:])
-        return bb
+        return d
+    def _set_broadcastFlags(self, d):
+        """Set the broadcast flags from Python dictionary @d. This can be the (modified) version
+        that was answered by self.getBroadcastFlags.
+        """
+        cmd = self.LAN_SET_BROADCASTFLAGS + 0x00000001.to_bytes(4, LITTLE_ORDER)
+        printCmd('setBroadcastFlags: ', cmd)
+        self.send(cmd)
+    broadcastFlags = property(_get_broadcastFlags, _set_broadcastFlags)
 
     def readCV(self, cvId):
         """Read the @cvId value, assuming that the loco is on a programmaing track. No loco id is required.
@@ -603,6 +608,17 @@ class LokSound5(Z21):
 
 
 if __name__ == "__main__":
+    def test0():
+
+        HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
+        z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
+        z21.setTrackPowerOn()
+        print('Status',  z21.status)
+        #print('Loco address', z21.getLocoAddress())
+        #print(z21.getLocoInfo(3))
+        print(z21.systemState)
+        z21.close()
+
     def test1():
 
         HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
@@ -690,6 +706,6 @@ if __name__ == "__main__":
         z21.setTrackPowerOff()
         z21.close()
 
-    test1()
+    test0()
 
 
