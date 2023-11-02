@@ -20,6 +20,8 @@ from socket import socket, timeout, AF_INET, SOCK_STREAM, SOCK_DGRAM
 LITTLE_ORDER = "little"
 BIG_ORDER = 'big'
 
+MAX_READ = 1024 # In undefined, try to read this amount of bytes from the socket.
+
 PORT = 21105 # Default port number for Z21
 ON = 'on'
 OFF = 'off'
@@ -109,7 +111,7 @@ class Z21:
     LAN_SET_BROADCASTFLAGS =        CMD(0x08, 0, 0x50, 0, 0) # Add 32 bits broadcast flags, Z21: 216
     LAN_GET_BROADCASTFLAGS =        CMD(0x04, 0, 0x51, 0) # Z21: 2.17
 
-    LAN_SYSTEMSTATE_DATACHANGED =   CMD(0x14, 0, 0x84, 0, 0) # Add 16 bytes data, Z21: 2.18
+    LAN_SYSTEMSTATE_DATACHANGED =   CMD(0x14, 0, 0x84, 0) # Add 16 bytes data, Z21: 2.18
     LAN_SYSTEMSTATE_GETDATA =       CMD(0x04, 0, 0x85, 0) # Request the current system status. Z21: 2.19
     LAN_GET_HWINFO =                CMD(0x04, 0, 0x1A, 0) # Z21: 2.20
     LAN_GET_CODE =                  CMD(0x04, 0, 0x18, 0) # Z21: 2.21
@@ -219,10 +221,13 @@ class Z21:
 
     def receiveInt(self):
         # receive and process response
-        incomingPacket = self.s.recv(1024) # Read packet from the Z21 device.
+        incomingPacket = self.s.recv(MAX_READ) # Read packet from the Z21 device.
         return int.from_bytes(incomingPacket[4:], LITTLE_ORDER) # Skip the package header
 
-    def receiveBytes(self, cnt):
+    def receiveBytes(self, cnt=MAX_READ):
+        """Read and answer a number of bytes from the LAN socket. If no @cnt is defined, then try to read the MAX_READ amount.
+        If there's less bytes available, then just answer those.
+        """
         return self.s.recv(cnt)
         
     def close(self):
@@ -249,6 +254,16 @@ class Z21:
         self.send(self.LAN_GET_SERIAL_NUMBER)
         return self.receiveInt()
     serialNumber = property(_get_serialNumber)
+
+    def _get_firmwareVersion(self):
+        """The firmware version of the Z21 can be read with this property."""
+        cmd = self.LAN_X_GET_FIRMWARE_VERSION
+        self.send(cmd)
+        bb = self.receiveBytes(1024)
+        printCmd('Firmware version (cmd): ', cmd)
+        printCmd('Firmware version (result): ', bb)
+        return '%x.%x' % (bb[6], bb[7])       
+    firmwareVersion = property(_get_firmwareVersion)
 
     def _get_status(self):
         """See Z21 LAN Protocol Specification: 2.11"""
@@ -327,6 +342,7 @@ class Z21:
         #### VALUES MAY NOT BE RIGHT YET, CALIBRATE with other app
         """
         self.send(self.LAN_SYSTEMSTATE_GETDATA)
+        # This report LAN_SYSTEMSTATE_DATACHANGED from Z21 controller to client
         bb = self.receiveBytes(20)
         
         printCmd(f'System state (result) {len(bb)}: ', bb)
@@ -338,6 +354,8 @@ class Z21:
         # If SystemState.Capabilities == 0, then it can be assumed that the device has an older firmware version. 
         # SystemState.Capabilities should not be evaluated when using older firmware versions!
         capabilities = int.from_bytes(bb[15:16], LITTLE_ORDER)
+        print('dsdds', capabilities, bb[15:16])
+        return
         assert capabilities != 0  
 
         state = dict(
@@ -558,10 +576,11 @@ class Z21:
         """
         cmd = self.LAN_GET_BROADCASTFLAGS
         self.send(cmd)
-        bb = self.receiveBytes(8)
+        bb = self.receiveBytes()
         flagsInt = int.from_bytes(bb[4:], LITTLE_ORDER)
         d = {}
-        printCmd('Broadcast flags: ', bb[4:])
+        printCmd('LAN_GET_BROADCASTFLAGS: ', cmd)
+        printCmd('Broadcast flags (result): ', bb)
         return d
     def _set_broadcastFlags(self, d):
         """Set the broadcast flags from Python dictionary @d. This can be the (modified) version
@@ -614,9 +633,12 @@ if __name__ == "__main__":
         z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
         z21.setTrackPowerOn()
         print('Status',  z21.status)
-        #print('Loco address', z21.getLocoAddress())
+        flags = z21.broadcastFlags
+        #print('Firmware version', z21.firmwareVersion)
+        print('Loco address', z21.getLocoAddress())
         #print(z21.getLocoInfo(3))
-        print(z21.systemState)
+        #print(z21.systemState)
+        z21.setTrackPowerOff()
         z21.close()
 
     def test1():
