@@ -1,4 +1,12 @@
-#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+# ------------------------------------------------------------------------------
+#     Copyright (c) 2023+ TYPETR
+#     Usage by MIT License
+# ..............................................................................
+#
+#    TYPETR z21.py
+#
+#   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
 #
 #   Documentation: z21-lan-protokoll-en.pdf
 #   https://www.z21.eu/en/downloads/manuals
@@ -6,8 +14,8 @@
 #   Inspired by on: https://gitlab.com/z21-fpm/z21_python
 #
 #   2023-10-27 Tested on DR5000 via LAN
+#   2023-11-04 Adding more functions and value tests. Better awaraness of programming track.
 #
-#   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
 #
 import logging
 import struct
@@ -32,7 +40,7 @@ TOGGLE = 'toggle'
 def printCmd(sender, cmd):
     s = sender
     for b in cmd:
-        s += '%02X ' % b
+        s += '0x%02X ' % b
     print(s)
 
 def loco2Bytes(loco):
@@ -56,7 +64,7 @@ def XOR(b):
 def CMD(*args):
     """Construct the byte-array from a list of arguments. If the argument is None, then substitute the XOR checksum, 
     based on the array if previous bytes. This way the Z21 class can define the layout of commands by templates.
-        LAN_X_SET_TRACK_POWER_ON =      CMD(0x07, 0, 0x40, 0, 0x21, 0x81, None) # XOR: 0xa0, Z21: 2.6
+        LAN_X_SET_TRACK_POWER_ON = CMD(0x07, 0, 0x40, 0, 0x21, 0x81, None) # XOR: 0xa0, Z21: 2.6
     """
     b = b'' # Start with empty byte string
     xor = None # If still None at the end, then the XOR will be calculated on the cumulated @b bytes.
@@ -66,7 +74,7 @@ def CMD(*args):
         else:
             byte = i.to_bytes(1, LITTLE_ORDER)
             b += byte
-    if xor is not None:
+    if xor is not None: # An XOR was made by the None template. Add it to the byte-string.
         b += xor
     return b
 
@@ -87,6 +95,8 @@ class Z21:
     # None is replaced by calculated XOR 
     # Some commands need additional byte parameters, as indicated in the comment.
     # "Z21:" is referencing to the chapters in the z21-lan-protokoll-en.pdf manual.
+    # Using the literal writing of the command names, it's easy to find them in the Z21
+    # documentation PDF. on https://www.z21.eu/en/downloads/manuals
 
     # Z21: 2 System, Status, Versions
 
@@ -115,6 +125,7 @@ class Z21:
     LAN_SYSTEMSTATE_GETDATA =       CMD(0x04, 0, 0x85, 0) # Request the current system status. Z21: 2.19
     LAN_GET_HWINFO =                CMD(0x04, 0, 0x1A, 0) # Z21: 2.20
     LAN_GET_CODE =                  CMD(0x04, 0, 0x18, 0) # Z21: 2.21
+    #LAN_GET_CODE_REPLY =           CMD(0x05, 0, 0x18, 0, byte) # Z21: Z.21
 
     # Z21: 3 Settings
     LAN_GET_LOCOMODE =              CMD(0x06, 0, 0x60, 0) # Add 16 bits loco address, big endian, Loco #0, Z21: 3.1
@@ -202,8 +213,8 @@ class Z21:
     # LAN_FAST_CLOCK_SETTINGS_SET Z21: 12.4
 
     def __init__(self, host, port=PORT, verbose=False):
-        """Constructor of Z21 object, holding the open LAN socket to the DR5000 and offering a more abstract interface
-        to the Z21 commands (or a logical sequence of commands.)"""
+        """Constructor of Z21 object, holding the open LAN socket to the Z21/DR5000 controller and offering a 
+        more abstract interface to the Z21 commands (or a logical sequence of commands.)"""
         self.host = host
         self.port = port # Port for Z21, default on 
         self.s = socket(AF_INET, SOCK_DGRAM) # Keep the socket opeb, e.g. to the DR5000 device via LAN
@@ -221,7 +232,7 @@ class Z21:
 
     def receiveInt(self):
         # receive and process response
-        incomingPacket = self.s.recv(MAX_READ) # Read packet from the Z21 device.
+        incomingPacket = self.receiveBytes() # Read packet from the Z21 device.
         return int.from_bytes(incomingPacket[4:], LITTLE_ORDER) # Skip the package header
 
     def receiveBytes(self, cnt=MAX_READ):
@@ -324,9 +335,13 @@ class Z21:
         #define z21_START_LOCKED 0x01 // „z21 start”: driving and switching is blocked 
         #define z21_START_UNLOCKED 0x02 // „z21 start”: driving and switching is permitted
         """
-        self.send(self.LAN_GET_CODE)
-        bb = self.receiveBytes(5)
-        code = int.from_bytes(bb[4:], BIG_ORDER)
+        cmd = self.LAN_GET_CODE
+        self.send(cmd)
+        bb = self.receiveBytes()
+        if self.verbose:
+            printCmd('LAN_GET_CODE ', cmd)
+            printCmd('LAN_GET_CODE_RESULT ', bb)
+        code = int.from_bytes(bb[-1:], BIG_ORDER)
         if code in (self.NO_LOCK, self.START_LOCKED, self.START_UNLOCKED):
             return code
         return None # Unknown code
@@ -405,7 +420,7 @@ class Z21:
         1 ... MM Format
         """
         cmd = self.LAN_GET_LOCOMODE + loco2Bytes(loco)
-        cmd += XOR(cmd)
+        printCmd('getLocoMode: ', cmd)
         self.send(cmd)
         bb = self.receiveBytes(7)
         rLoco = int.from_bytes(bb[4:6], BIG_ORDER)
@@ -422,7 +437,7 @@ class Z21:
         """
         assert mode in (self.LOCOMODE_DCC, self.LOCOMODE_MM)
         cmd = self.LAN_SET_LOCOMODE + loco2Bytes(loco) + mode.to_bytes(1, LITTLE_ORDER)
-        cmd += XOR(cmd)
+        cmd += XOR(cmd[4:])
         self.send(cmd)
 
     def getLocoInfo(self, loco):
@@ -450,7 +465,7 @@ class Z21:
         cmd += XOR(cmd)
         self.send(cmd)
         # Result format: LAN_X_LOCO_INFO
-        bb = self.receiveBytes(1024) # Length of return package is not fixed.
+        bb = self.receiveBytes() # Length of return package is not fixed.
         if self.verbose:
             printCmd('getLocoInfo ', cmd)
             printCmd('getLocoInfo result ', bb)
@@ -461,19 +476,35 @@ class Z21:
 
     #   T R A C K  P O W E R 
 
-    def setTrackPowerOff(self):
-        """Set track power off"""
-        cmd = self.LAN_X_SET_TRACK_POWER_OFF
-        if self.verbose:
-            printCmd('setTrackPowerOff cmd: ', cmd)
-        self.send(cmd)
-
     def setTrackPowerOn(self):
-        """Set track power on"""
+        """[2.6] LAN_X_SET_TRACK_POWER_ON
+        This command switches on the track voltage, or terminates either the emergency stop or the programming mode.
+        Reply from Z21: see 2.8 LAN_X_BC_TRACK_POWER_ON
+        The following packet is sent from the Z21 to the registered clients when
+            • a client has sent command 2.6 LAN_X_SET_TRACK_POWER_ON.
+            • or the track voltage has been switched on by some input device (multiMaus).
+            • and the relevant client has activated the corresponding broadcast, see 2.16 LAN_SET_BROADCASTFLAGS, Flag 0x00000001
+        """
         cmd = self.LAN_X_SET_TRACK_POWER_ON
-        if self.verbose:
-            printCmd('setTrackPowerOn cmd: ', cmd)
         self.send(cmd)
+        bb = 0 #self.receiveBytes() # Cleanup result, in case a packet is sent from the controller: LAN_X_BC_TRACK_POWER_ON
+        if bb and self.verbose:
+            printCmd('LAN_X_SET_TRACK_POWER_ON ', cmd)
+            printCmd('LAN_X_BC_TRACK_POWER_ON ', bb)
+
+    def setTrackPowerOff(self):
+        """[2.5] LAN_X_SET_TRACK_POWER_OFF
+        This command switches off the track voltage.
+        The following packet is sent from the Z21 to the registered clients when
+            • a client has sent command 2.5 LAN_X_SET_TRACK_POWER_OFF.
+            • or the track voltage has been switched off by some input device (multiMaus).
+            • and the relevant client has activated the corresponding broadcast, see 2.16 LAN_SET_BROADCASTFLAGS, Flag 0x00000001"""
+        cmd = self.LAN_X_SET_TRACK_POWER_OFF
+        self.send(cmd)
+        bb = 0 # self.receiveBytes()
+        if bb and self.verbose:
+            printCmd('LAN_X_SET_TRACK_POWER_OFF ', cmd)
+            printCmd('LAN_X_BC_TRACK_POWER_OFF ', bb)
 
     #   L O C O  D R I V E
 
@@ -561,13 +592,7 @@ class Z21:
         if self.verbose:
             print(f'setLight(loco={loco}, value={value})')
 
-    #   R E A D  /  W R I T E  C O N F I G U R A T I O N  V A R I A B L E S  ( C V )
-
-    CV_LOCO_ADDRESS = 1 # Address of engine (For Multiprotocol decoders: Range 1-255 for Motorola). Range: 1-127. Default: 3
-    CV_START_VOLTAGE = 2 # Sets the minimum speed of the engine. Range: 1-127. Default: 3
-    CV_ACCELERATION = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
-    CV_DECELERATION = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
-    CV_MAXIMUM_SPEED = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
+    #   B R O A D C A S T I N G  F L A G S
 
     def _get_broadcastFlags(self):
         """Answer the broadcast flags as dictionary with readable Python values.
@@ -578,18 +603,31 @@ class Z21:
         self.send(cmd)
         bb = self.receiveBytes()
         flagsInt = int.from_bytes(bb[4:], LITTLE_ORDER)
-        d = {}
-        printCmd('LAN_GET_BROADCASTFLAGS: ', cmd)
-        printCmd('Broadcast flags (result): ', bb)
+        d = dict(flags=flagsInt)
+        if self.verbose:
+            printCmd('LAN_GET_BROADCASTFLAGS: ', cmd)
+            printCmd('Broadcast flags (result): ', bb)
         return d
     def _set_broadcastFlags(self, d):
         """Set the broadcast flags from Python dictionary @d. This can be the (modified) version
         that was answered by self.getBroadcastFlags.
         """
-        cmd = self.LAN_SET_BROADCASTFLAGS + 0x00000001.to_bytes(4, LITTLE_ORDER)
-        printCmd('setBroadcastFlags: ', cmd)
+        flagsInt = 0
+
+        cmd = self.LAN_SET_BROADCASTFLAGS + flagsInt.to_bytes(4, LITTLE_ORDER)
+        if self.verbose:
+            printCmd('setBroadcastFlags: ', cmd)
         self.send(cmd)
     broadcastFlags = property(_get_broadcastFlags, _set_broadcastFlags)
+
+
+    #   R E A D  /  W R I T E  C O N F I G U R A T I O N  V A R I A B L E S  ( C V )
+
+    CV_LOCO_ADDRESS = 1 # Address of engine (For Multiprotocol decoders: Range 1-255 for Motorola). Range: 1-127. Default: 3
+    CV_START_VOLTAGE = 2 # Sets the minimum speed of the engine. Range: 1-127. Default: 3
+    CV_ACCELERATION = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
+    CV_DECELERATION = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
+    CV_MAXIMUM_SPEED = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
 
     def readCV(self, cvId):
         """Read the @cvId value, assuming that the loco is on a programmaing track. No loco id is required.
@@ -598,10 +636,11 @@ class Z21:
         the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
         """
         cmd = self.LAN_X_CV_READ + loco2Bytes(cvId-1) # Corrected address offset by 1
-        cmd += XOR(cmd)
+        cmd += XOR(cmd[4:])
         self.send(cmd)
-        printCmd('readCV cmd ', cmd)
-        bb = self.receiveBytes(9)
+        if self.verbose:
+            printCmd('readCV cmd ', cmd)
+        bb = self.receiveBytes()
         return int.from_bytes(bb[8:9], LITTLE_ORDER)
 
     def writeCV(self, cvId, cvValue):
@@ -611,11 +650,42 @@ class Z21:
         the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
         """
         cmd = self.LAN_X_CV_WRITE + loco2Bytes(cvId-1) + cvValue.to_bytes(1, LITTLE_ORDER) # Corrected address offset by 1
-        cmd += XOR(cmd)
+        cmd += XOR(cmd[4:])
         self.send(cmd)
 
-    def getLocoAddress(self):
+    # Running on the Programming Track
+
+    def _get_locoAdress(self):
         return self.readCV(self.CV_LOCO_ADDRESS)
+    def _set_locoAddress(self, loco):
+        self.writeCV(self.CV_LOCO_ADDRESS, loco)
+    locoAddress = property(_get_locoAdress, _set_locoAddress)
+
+    def _get_startVoltage(self):
+        return self.readCV(self.CV_START_VOLTAGE)
+    def _set_startVoltage(self, v):
+        assert v in range(1, 128)
+        self.writeCV(self.CV_START_VOLTAGE, v)
+    startVoltage = property(_get_startVoltage, _set_startVoltage)
+
+    def _get_acceleration(self):
+        return self.readCV(self.CV_ACCELERATION)
+    def _set_acceleration(self, a):
+        self.writeCV(self.CV_ACCELERATION, a)
+    acceleration = property(_get_acceleration, _set_acceleration)
+
+    def _get_deceleration(self):
+        return self.readCV(self.CV_DECELERATION)
+    def _set_deceleration(self, d):
+        self.writeCV(self.CV_DECELERATION, d)
+    deceleration = property(_get_deceleration, _set_deceleration)
+
+    def _get_maximumSpeed(self):
+        return self.readCV(self.CV_MAXIMUM_SPEED)
+    def _set_maximumSpeed(self, s):
+        assert s in range(0, 255)
+        self.writeCV(self.CV_MAXIMUM_SPEED, s)
+    maximumSpeed = property(_get_maximumSpeed, _set_maximumSpeed)
 
 class LokSound5(Z21):
     """Subclassing for specifically LocSound5 decoder functionality. This inheriting class will know about
@@ -627,107 +697,17 @@ class LokSound5(Z21):
 
 
 if __name__ == "__main__":
-    def test0():
-
-        HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-        z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
-        z21.setTrackPowerOn()
-        print('Status',  z21.status)
-        flags = z21.broadcastFlags
-        #print('Firmware version', z21.firmwareVersion)
-        print('Loco address', z21.getLocoAddress())
-        #print(z21.getLocoInfo(3))
-        #print(z21.systemState)
-        z21.setTrackPowerOff()
-        z21.close()
-
-    def test1():
-
-        HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-        z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
-        z21.setTrackPowerOn()
-        print(z21.getLocoInfo(3))
-        print('Hardware type: 0x%04x Firmware type: 0x%04x' %z21.hwInfo)
-        print('Lan Code', z21.lanGetCode)
-        print('Loco address', z21.getLocoAddress())
-        printCmd('Get broadcast ', z21.getBroadcastFlags())
-        z21.setBroadcastFlags(1)
-        print('Loco address', z21.readCV(1), z21.getLocoAddress())
-        printCmd('Get broadcast ', z21.getBroadcastFlags())
-        print(z21.systemState)
-        z21.setTrackPowerOff()
-        print(z21.systemState)
-        z21.close()
-        
-    def test2():
-
-        HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-        z21 = Z21(HOST, verbose=True) # New connector object with open LAN socket 
-        loco = 3
-        print('Start Z21', z21)
-        print('Version', z21.version)
-        print('Serial number', z21.serialNumber)
-        print('Status',  z21.status)
-        z21.setTrackPowerOn()
-        z21.locoFunction(loco, 2, True) # Horn
-        z21.wait(2)
-        z21.locoFunction(loco, 2, False) # Horn
-        z21.locoFunction(loco, 3, True) # Horn
-        z21.wait(2)
-        z21.locoFunction(loco, 3, False) # Horn
-        z21.locoFunction(loco, 4, True) # Horn
-        z21.wait(2)
-        z21.locoFunction(loco, 4, False) # Horn
-        z21.locoFunction(loco, 12, True) # Horn
-        z21.wait(2)
-        z21.locoFunction(loco, 12, False) # Horn
-        
-        z21.wait(3)
-        #z21.locoFunction(loco, 0, True) # Turn on front/back headlight, depending on driving direction
-        z21.locoDrive(loco, 70)
-        z21.wait(6)
-        z21.stop(loco)
-        z21.setHeadLight(loco, OFF) # Same as z21.locoFunction(loco, 0, OFF)
-        z21.setLight(loco, ON) # Same as z21.locoFunction(loco, 2, ON)
-        z21.locoFunction(loco, 2, True)
-        z21.wait(3)
-        z21.locoFunction(loco, 2,False)
-
-        z21.wait(8)
-        z21.locoDrive(loco, -50) # Drive backwards
-        z21.wait(8)
-        z21.locoDrive(loco, 3) # Drive very slow
-        z21.wait(8)
-        z21.locoDrive(loco, 110, forward=True)
-        z21.wait(6)
-        z21.stop(loco) # Slow natural stop
-
-        z21.locoFunction(loco, 2, True)
-        z21.wait(0.5)
-        z21.locoFunction(loco, 2,False)
-        z21.wait(0.25)
-        z21.locoFunction(loco, 2, True)
-        z21.wait(0.5)
-        z21.locoFunction(loco, 2,False)
-        z21.wait(0.25)
-        z21.locoFunction(loco, 2, True)
-        z21.wait(0.5)
-        z21.locoFunction(loco, 2,False)
-
-        z21.wait(6)
-        z21.locoDrive(loco, -80)
-
-        #z21.locoFunction(loco, 1, False)
-        #z21.locoFunction(loco, 2, False)
-        #z21.locoFunction(loco, 3, False)
-        z21.wait(6)
-        z21.eStop(loco) # Emergency stop
-        z21.locoFunction(loco, 0, False) # Turn off front/back headlight, depending on driving direction
-        print('Status', z21.status)
-        z21.wait(6)
-        z21.setTrackPowerOff()
-        z21.close()
-
-    test0()
+    HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
+    c = Z21(HOST, verbose=True) # New controller object with open LAN socket
+    print('Start Z21 controller', c)
+    print('Version', c.version)
+    print('Serial number', c.serialNumber)
+    print('Status',  c.status)
+    print('Hardware type: 0x%04x Firmware type: 0x%04x' % c.hwInfo)
+    c.setTrackPowerOn()
+    c.wait(3)
+    c.setTrackPowerOff()
+    c.close()
+    print('Done')
 
 

@@ -10,6 +10,12 @@ The development is done on MacOS, but since most Python code will only use stand
 
 For questions, additional info and contributions, contact tptr@petr.com
 
+## Sources
+
+* **z21.py** Contains the main classes and global helper functions
+* **testController.py** Test the basic controller functions, such a track power on/off and overall settings.
+
+
 ## Interesting references
 
 ### Z21
