@@ -25,6 +25,8 @@ import sys
 import time
 from socket import socket, timeout, AF_INET, SOCK_STREAM, SOCK_DGRAM
 
+VERSION = '0.001'
+
 # LITTLE_ORDER is positional to be compatible with micropython
 # https://docs.micropython.org/en/latest/library/builtins.html#int.from_bytes
 LITTLE_ORDER = "little"
@@ -52,6 +54,9 @@ def loco2Bytes(loco):
 def bytes2Loco(bb):
     """Convert the 2-byte array to a loco address integer."""
     return int.from_bytes(bb, BIG_ORDER)
+
+def int2Bytes(i):
+    """Convert an unsigned integer to bytes."""
 
 def XOR(b):
     """Answer the XOR-parity byte from the byte-array that is necessary for most Z21 commands."""
@@ -223,6 +228,9 @@ class Z21:
         self.s.connect((self.host, self.port))
         self.verbose = verbose # Optionally show what it is doing.
 
+        # In case it is on, currently still disturbing the reading of other packages.
+        self.broadcastFlags = 0 
+
     def __repr__(self):
         return f'<{self.__class__.__name__}({self.host}, {self.port})>'
 
@@ -235,6 +243,8 @@ class Z21:
     def receiveInt(self):
         # receive and process response
         incomingPacket = self.receiveBytes() # Read packet from the Z21 device.
+        if not incomingPacket:
+            return None
         return int.from_bytes(incomingPacket[4:], LITTLE_ORDER) # Skip the package header
 
     def receiveBytes(self, cnt=MAX_READ):
@@ -358,11 +368,14 @@ class Z21:
 
         #### VALUES MAY NOT BE RIGHT YET, CALIBRATE with other app
         """
-        self.send(self.LAN_SYSTEMSTATE_GETDATA)
+        cmd = self.LAN_SYSTEMSTATE_GETDATA
+        self.send(cmd)
         # This report LAN_SYSTEMSTATE_DATACHANGED from Z21 controller to client
         bb = self.receiveBytes(20)
         
-        printCmd(f'System state (result) {len(bb)}: ', bb)
+        if self.verbose:
+            printCmd('LAN_SYSTEMSTATE_GETDATA', cmd)
+            printCmd(f'System state (result) {len(bb)}: ', bb)
 
         centralState = int.from_bytes(bb[12:13], LITTLE_ORDER)
         centralStateEx = int.from_bytes(bb[13:14], LITTLE_ORDER)
@@ -371,8 +384,6 @@ class Z21:
         # If SystemState.Capabilities == 0, then it can be assumed that the device has an older firmware version. 
         # SystemState.Capabilities should not be evaluated when using older firmware versions!
         capabilities = int.from_bytes(bb[15:16], LITTLE_ORDER)
-        print('dsdds', capabilities, bb[15:16])
-        return
         assert capabilities != 0  
 
         state = dict(
@@ -422,11 +433,15 @@ class Z21:
         1 ... MM Format
         """
         cmd = self.LAN_GET_LOCOMODE + loco2Bytes(loco)
-        printCmd('getLocoMode: ', cmd)
         self.send(cmd)
         bb = self.receiveBytes(7)
         rLoco = int.from_bytes(bb[4:6], BIG_ORDER)
-        assert rLoco == loco # Should always be identical.
+        if rLoco != loco:
+            print(f'Sent loco #{loco} and received loco #{rLoco} are not identical.') # Should always be identical.
+        if 1 or self.verbose:
+            printCmd('LAN_GET_LOCOMODE: ', cmd)
+            printCmd('LAN_GET_LOCOMODE-Result: ', bb)
+
         mode = int.from_bytes(bb[-1:], BIG_ORDER)
         assert mode in (self.LOCOMODE_DCC, self.LOCOMODE_MM)
         return mode
@@ -660,6 +675,11 @@ class Z21:
     CV_DECELERATION = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
     CV_MAXIMUM_SPEED = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
 
+    # The master volume control controls all sound effects. A value of „0“ would mute the decoder completely. 
+    # The resulting sound vo- lume for each individual sound effect therefore is a mixture of the master volume control 
+    # settings and the individual volume control sliders. Range: 0-192. Default: 180.
+    CV_MASTER_VOLUME = 63 
+
     def readCV(self, cvId):
         """Read the @cvId value, assuming that the loco is on a programmaing track. No loco id is required.
         Note that this method corrects the id-offset, so instead of:
@@ -669,9 +689,10 @@ class Z21:
         cmd = self.LAN_X_CV_READ + loco2Bytes(cvId-1) # Corrected address offset by 1
         cmd += XOR(cmd[4:])
         self.send(cmd)
-        if self.verbose:
-            printCmd('readCV cmd ', cmd)
         bb = self.receiveBytes()
+        if self.verbose:
+            printCmd(f'LAN_X_CV_READ ', cmd)
+            printCmd(f'{len(bb)} LAN_X_CV_READ (result) ', bb)
         return int.from_bytes(bb[8:9], LITTLE_ORDER)
 
     def writeCV(self, cvId, cvValue):
@@ -679,10 +700,13 @@ class Z21:
         Note that this method corrects the id-offset, so instead of:
         CV-Address = (CVAdr_MSB << 8) + CVAdr_LSB, where 0=CV1, 1=CV2, 255=CV256, etc.
         the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
+        Since the writing of a CV makes the controller/decoder write back on on the stream, don't forget to clean it.
         """
         cmd = self.LAN_X_CV_WRITE + loco2Bytes(cvId-1) + cvValue.to_bytes(1, LITTLE_ORDER) # Corrected address offset by 1
         cmd += XOR(cmd[4:])
         self.send(cmd)
+        # The send generates feedback, makes sure to clear the socket for all packages.
+        bb = self.receiveBytes() # Read all bytes on the line
 
     # Running on the Programming Track
 
@@ -702,21 +726,32 @@ class Z21:
     def _get_acceleration(self):
         return self.readCV(self.CV_ACCELERATION)
     def _set_acceleration(self, a):
+        assert a in range(0, 256)
         self.writeCV(self.CV_ACCELERATION, a)
     acceleration = property(_get_acceleration, _set_acceleration)
 
     def _get_deceleration(self):
         return self.readCV(self.CV_DECELERATION)
     def _set_deceleration(self, d):
+        assert d in range(0, 256)
         self.writeCV(self.CV_DECELERATION, d)
     deceleration = property(_get_deceleration, _set_deceleration)
 
     def _get_maximumSpeed(self):
         return self.readCV(self.CV_MAXIMUM_SPEED)
     def _set_maximumSpeed(self, s):
-        assert s in range(0, 255)
+        assert s in range(0, 256)
         self.writeCV(self.CV_MAXIMUM_SPEED, s)
     maximumSpeed = property(_get_maximumSpeed, _set_maximumSpeed)
+
+
+    def _get_masterVolume(self):
+        return self.readCV(self.CV_MASTER_VOLUME)
+    def _set_masterVolume(self, s):
+        assert s in range(0, 193)
+        self.writeCV(self.CV_MASTER_VOLUME, s)
+    masterVolume = property(_get_masterVolume, _set_masterVolume)
+
 
 class LokSound5(Z21):
     """Subclassing for specifically LocSound5 decoder functionality. This inheriting class will know about
