@@ -25,6 +25,10 @@ For questions, additional info and contributions, contact tptr@petr.com
 * https://www.z21.eu/en/z21-system/general-information
 * https://github.com/grizeldi/z21-drive
 
+## Connecting BRAWA Test track “Der BRAWA Rollenprüfstand”
+
+* https://www.stummiforum.de/t79402f2-Der-BRAWA-Rollenpr-fstand.html#msg837779
+
 ### General links
 
 * (Inspired by) https://gitlab.com/z21-fpm/z21_python

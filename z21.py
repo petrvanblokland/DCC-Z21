@@ -7,9 +7,11 @@
 #    TYPETR z21.py
 #
 #   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
+#                                          <----- (2-wire rails) -----> [LokPilot5]
 #
 #   Documentation: z21-lan-protokoll-en.pdf
 #   https://www.z21.eu/en/downloads/manuals
+#   https://www.esu.eu/en/downloads/instruction-manuals/digital-decoders/
 #
 #   Inspired by on: https://gitlab.com/z21-fpm/z21_python
 #
@@ -144,8 +146,8 @@ class Z21:
     LAN_X_PURGE_LOCO =              CMD(0x09, 0, 0x40, 0, 0xE3, 0x44) # Add address MSB, address LSB, XOR-Byte, Z21: 4.6
 
     # Z21: 5 Switching
-    # LAN_X_GET_TURNOUT_INFO Z21: 5.1
-    # LAN_X_SET_TURNOUT Z21: 5.2
+    LAN_X_GET_TURNOUT_INFO =        CMD(0x08, 0x00, 0x40, 0x00, 0x43) # Add address MSB, address LSB, XOR-Byte, Z21: 5.1
+    LAN_X_SET_TURNOUT =             CMD(0x09, 0x00, 0x40, 0x63) # Add address MSB, address LSB, value-byte, XOR-Byte Z21: 5.2
     # LAN_X_TURNOUT_INFO Z21: 5.3
     # LAN_X_SET_EXT_ACCESSORY Z21: 5.4
     # LAN_X_GET_EXT_ACCESSORY_INFO Z21: 5.5
@@ -620,6 +622,35 @@ class Z21:
         self.send(cmd)
     broadcastFlags = property(_get_broadcastFlags, _set_broadcastFlags)
 
+    #  5  S W I T C H I N G
+
+    def getTurnoutInfo(self, turnoutId):
+        """The following command can be used to poll the status of a turnout (or any accessory function)."""
+        cmd = self.LAN_X_GET_TURNOUT_INFO + turnoutId.to_bytes(2, BIG_ORDER)
+        cmd += XOR(cmd[4:])
+        self.send(cmd)
+        bb = self.receiveBytes()
+        printCmd('getTurnoutInfo result', bb)
+        flags = int(bb[-1])
+        return flags & 0x03
+
+    def setTurnout(self, turnoutId, value):
+        """A turnout (or any accessory function) can be switched with the following command.
+        10Q0A00P
+            A=0 ... Deactivate turnout output
+            A=1 ... Activate turnout output
+            P=0 ... Select output 1 of the turnout
+            P=1 ... Select output 2 of the turnout
+            Q=0 ... Execute command immediately
+            Q=1 ... From Z21 FW V1.24: Insert turnout command into the queue of Z21 and deliver it
+"""
+        if value:
+            v = 0x89 # 10001001
+        else:
+            v = 0x88 # 10001000
+        cmd = self.LAN_X_SET_TURNOUT + turnoutId.to_bytes(2, BIG_ORDER) + v.to_bytes(1, BIG_ORDER)
+        cmd += XOR(cmd[4:])
+        self.send(cmd)
 
     #   R E A D  /  W R I T E  C O N F I G U R A T I O N  V A R I A B L E S  ( C V )
 
