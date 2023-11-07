@@ -674,7 +674,10 @@ class Z21:
     CV_ACCELERATION = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
     CV_DECELERATION = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
     CV_MAXIMUM_SPEED = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
-
+    CV_MEDIUM_SPEED = 6 # Medium speed of the engine. Use only if 3-point speed table is enabled. For LokSound 5 DCC only.
+    CV_VERSION_NUMBER = 7 # Internal software version of decoder
+    CV_MANUFACTURERS_ID = 8 # Manufacturers‘s ID ESU - Writing value 8 in this CV triggers a reset to factory default values. Range: 151.
+    
     # The master volume control controls all sound effects. A value of „0“ would mute the decoder completely. 
     # The resulting sound vo- lume for each individual sound effect therefore is a mixture of the master volume control 
     # settings and the individual volume control sliders. Range: 0-192. Default: 180.
@@ -710,47 +713,65 @@ class Z21:
 
     # Running on the Programming Track
 
-    def _get_locoAdress(self):
+    def _get_cvLocoAdress(self):
         return self.readCV(self.CV_LOCO_ADDRESS)
-    def _set_locoAddress(self, loco):
+    def _set_cvLocoAddress(self, loco):
         self.writeCV(self.CV_LOCO_ADDRESS, loco)
-    locoAddress = property(_get_locoAdress, _set_locoAddress)
+    cvLocoAddress = property(_get_cvLocoAdress, _set_cvLocoAddress)
 
-    def _get_startVoltage(self):
+    def _get_cvStartVoltage(self):
         return self.readCV(self.CV_START_VOLTAGE)
-    def _set_startVoltage(self, v):
+    def _set_cvStartVoltage(self, v):
         assert v in range(1, 128)
         self.writeCV(self.CV_START_VOLTAGE, v)
-    startVoltage = property(_get_startVoltage, _set_startVoltage)
+    cvStartVoltage = property(_get_cvStartVoltage, _set_cvStartVoltage)
 
-    def _get_acceleration(self):
+    def _get_cvAcceleration(self):
         return self.readCV(self.CV_ACCELERATION)
-    def _set_acceleration(self, a):
+    def _set_cvAcceleration(self, a):
         assert a in range(0, 256)
         self.writeCV(self.CV_ACCELERATION, a)
-    acceleration = property(_get_acceleration, _set_acceleration)
+    cvAcceleration = property(_get_cvAcceleration, _set_cvAcceleration)
 
     def _get_deceleration(self):
         return self.readCV(self.CV_DECELERATION)
     def _set_deceleration(self, d):
         assert d in range(0, 256)
         self.writeCV(self.CV_DECELERATION, d)
-    deceleration = property(_get_deceleration, _set_deceleration)
+    cvDeceleration = property(_get_deceleration, _set_deceleration)
 
     def _get_maximumSpeed(self):
         return self.readCV(self.CV_MAXIMUM_SPEED)
     def _set_maximumSpeed(self, s):
         assert s in range(0, 256)
         self.writeCV(self.CV_MAXIMUM_SPEED, s)
-    maximumSpeed = property(_get_maximumSpeed, _set_maximumSpeed)
+    cvMaximumSpeed = property(_get_maximumSpeed, _set_maximumSpeed)
+
+    def _get_mediumSpeed(self):
+        return self.readCV(self.CV_MEDIUM_SPEED)
+    def _set_mediumSpeed(self, s):
+        assert s in range(0, 256)
+        self.writeCV(self.CV_MEDIUM_SPEED, s)
+    cvMediumSpeed = property(_get_mediumSpeed, _set_mediumSpeed)
+
+    def _get_cvVersionNumber(self): # Read only
+        return self.readCV(self.CV_VERSION_NUMBER)
+    cvVersionNumber = property(_get_cvVersionNumber)
+
+    def _get_cvManufacturersId(self): # Read only
+        return self.readCV(self.CV_MANUFACTURERS_ID)
+    cvManufacturersId = property(_get_cvManufacturersId)
+
+    def resetDecoder(self):
+        self.writeCV(self.CV_MANUFACTURERS_ID, 8) # Special case will reset the decode to manufacture default values.
 
 
-    def _get_masterVolume(self):
+    def _get_cvMasterVolume(self):
         return self.readCV(self.CV_MASTER_VOLUME)
-    def _set_masterVolume(self, s):
+    def _set_cvMasterVolume(self, s):
         assert s in range(0, 193)
         self.writeCV(self.CV_MASTER_VOLUME, s)
-    masterVolume = property(_get_masterVolume, _set_masterVolume)
+    cvMasterVolume = property(_get_cvMasterVolume, _set_cvMasterVolume)
 
 
 class LokSound5(Z21):
