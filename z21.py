@@ -556,7 +556,8 @@ class Z21:
         else: # steps == 28:
             return # For now
 
-        self.setHeadLight(loco, bool(speed not in (0, 1))) # If moving, independent from direction
+        # Make sure it is on when moving
+        self.setHeadRearLight(loco, bool(speed not in (0, 1))) # If moving, independent from direction
 
         cmd = self.LAN_X_SET_LOCO_DRIVE + speedSteps[steps].to_bytes(1, LITTLE_ORDER) + loco2Bytes(loco) + bSpeed.to_bytes(1, LITTLE_ORDER)
         cmd += XOR(cmd)
@@ -565,6 +566,41 @@ class Z21:
         self.send(cmd) 
 
     #   L O C O  F U N C T I O N S
+
+    F0_HEAD_REAR_LIGHTING = 0 #  Head light/Rear light
+    F1_LIGHTING = 1 # Main lighting                                 Soundslot 1, Soundslot 2 (prime mover) 
+    F2 = 2 # Key F2                                                 Soundslot 3, Horn by default
+    F3 = 3 # Key F3                                                 Soundslot 4,
+    F4 = 4 # Key F4                                                 Soundslot 5,
+    F5 = 5 # Key F5  Optional Load
+    F6 = 6 # Key F6  Shunting Mode, Brake function 3, Primary Load 
+    F7 = 7 # Key F7                                                 Soundslot 15
+    F8 = 8 # Key F8 AUX1[1]
+    F9 = 9 # Key F9                                                 Soundslot 9
+
+    F10 = 10 # Key F10                                              Soundslot 10
+    F11 = 11 # Key F11                                              Soundslot 8
+    F12 = 12 # Key F12  Brake function 1                            Soundslot 22
+    F13 = 13 # Key F13, Not F5  Shift Mode 2
+    F14 = 14 # Key F14                                              Soundslot 7
+    F15 = 15 # Key F15  Smoke unit (ESU, KM-1, Kiss)
+    F16 = 16 # Key F16                                              Soundslot 12
+    F17 = 17 # Key F17                                              Soundslot 17
+    F18 = 18 # Key F18                                              Soundslot 14
+    F19 = 19 # Key F19                                              Soundslot 16
+
+    F20 = 20 # Key F20                                              Soundslot 18
+    F21 = 21 # Key F21                                              Soundslot 19
+    F22 = 22 # Key F22                                              Soundslot 20
+    F23 = 23 # Key F23                                              Soundslot 21
+    F24 = 24 # Key F24                                              Soundslot 6
+    F25_NOT = 25 # Key F25 off                                      Soundslot 13
+    F26 = 26 # Key F26  AUX2[1]
+    F27 = 27 # Key F27  Soundfader
+    F28 = 28 # Key F28  Disable braking sound
+    F29 = 29 # Key F29  Brake function 2
+    F30 = 30 # Key F30                                              Soundslot 11
+    F31 = 31 # Key F31  AUX3
 
     def locoFunction(self, loco, function, value):
         """Set the loco function value. @loco is the integer loco address and @function is the id, if supported by the loco-decoder.
@@ -581,6 +617,10 @@ class Z21:
         With DCC, F0 to F28 can be switched here. From Z21 FW version 1.42 the extended range from F0 to F31 can be used here.
         Reply from Z21:
         No standard reply, 4.4 LAN_X_LOCO_INFO to subscribed clients.
+
+        
+        TT switch type: 00=off, 01=on, 10=toggle,11=not allowed 
+        NNNNNN Function index, 0x00=F0 (light), 0x01=F1 etc.
         """
         if value in (0, False, OFF):
             functionCode = 0x00 # TT = 00 --> off
@@ -590,22 +630,24 @@ class Z21:
             functionCode = 0x80 # TT = 10 --> toggle
         else:
             raise ValueError(f'locoFunction: Wrong value {value}')
+
+        assert function in range(0, 32)
         functionCode |= function
         cmd = self.LAN_X_SET_LOCO_FUNCTION + loco2Bytes(loco) + functionCode.to_bytes(1, LITTLE_ORDER)
         cmd += XOR(cmd)
+        self.send(cmd)
         if self.verbose:
             printCmd(f'locoFunction(loco={loco}, function={function}, value={value}) cmd: ', cmd)
-        self.send(cmd)
 
-    def setHeadLight(self, loco, value=ON):
+    def setHeadRearLight(self, loco, value=ON):
         """Turn head light on/off, assuming default function=0"""
-        self.locoFunction(loco, 0, value) # Standard headlight function, decoder switches on driving direction
+        self.locoFunction(loco, self.F0_HEAD_REAR_LIGHTING, value) # Standard headlight function, decoder switches on driving direction
         if self.verbose:
             print(f'setHeadLight(loco={loco}, value={value})')
 
-    def setLight(self, loco, value=ON):
+    def setLighting(self, loco, value=ON):
         """Turn main light on/off, assuming default function=1"""
-        self.locoFunction(loco, 1, value) # Standard light function
+        self.locoFunction(loco, F1_LIGHTING, value) # Standard light function
         if self.verbose:
             print(f'setLight(loco={loco}, value={value})')
 
@@ -669,22 +711,36 @@ class Z21:
 
     #   R E A D  /  W R I T E  C O N F I G U R A T I O N  V A R I A B L E S  ( C V )
 
-    CV_LOCO_ADDRESS = 1 # Address of engine (For Multiprotocol decoders: Range 1-255 for Motorola). Range: 1-127. Default: 3
-    CV_START_VOLTAGE = 2 # Sets the minimum speed of the engine. Range: 1-127. Default: 3
-    CV_ACCELERATION = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
-    CV_DECELERATION = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
-    CV_MAXIMUM_SPEED = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
-    CV_MEDIUM_SPEED = 6 # Medium speed of the engine. Use only if 3-point speed table is enabled. For LokSound 5 DCC only.
-    CV_VERSION_NUMBER = 7 # Internal software version of decoder
-    CV_MANUFACTURERS_ID = 8 # Manufacturers‘s ID ESU - Writing value 8 in this CV triggers a reset to factory default values. Range: 151.
-    
+    # LokSound5 documentation: List of all supported CV's
+    # 51989_LokSound_5_ESUKG_EN_InstructionManual_Edition-15_eBook_01.pdf
+
+    CV_LOCO_ADDRESS         = 1 # Address of engine (For Multiprotocol decoders: Range 1-255 for Motorola). Range: 1-127. Default: 3
+    CV_START_VOLTAGE        = 2 # Sets the minimum speed of the engine. Range: 1-127. Default: 3
+    CV_ACCELERATION         = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
+    CV_DECELERATION         = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
+    CV_MAXIMUM_SPEED        = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
+    CV_MEDIUM_SPEED         = 6 # Medium speed of the engine. Use only if 3-point speed table is enabled. For LokSound 5 DCC only.
+    CV_VERSION_NUMBER       = 7 # Internal software version of decoder
+    CV_MANUFACTURERS_ID     = 8 # Manufacturers‘s ID ESU - Writing value 8 in this CV triggers a reset to factory default values. Range: 151.
+    CV_MOTOR_PWM_FREQUENZ   = 9 # Motor PWM frequency as a multiple of 1000 Hz. Range: 10-50. Default: 40.
+
+    CV_LONG_LOCO_ADDRESS    = 17 # Long address of engine (see chapter 9.2). Range: 128-9999. Default: 192.
+
+    CV_INDEX_REGISTER_L     = 32 # Selection page for CV257-512. Range 0-16. Default: 0.
+
     # The master volume control controls all sound effects. A value of „0“ would mute the decoder completely. 
     # The resulting sound vo- lume for each individual sound effect therefore is a mixture of the master volume control 
     # settings and the individual volume control sliders. Range: 0-192. Default: 180.
-    CV_MASTER_VOLUME = 63 
-
+    CV_MASTER_VOLUME        = 63 
+    # If the actual loco speed step is smaller than or equals the value indicated here, the brake sound is triggered. 
+    # Compare chapter 13.4. Range: 0-255. Default: 60.
+    CV_BRAKE_SOUND_ON       = 64 
+    # If the actual loco speed step is smaller than the one indicated here (up to 255), the brake sound will be switched off again. 
+    # Compare chapter 13.4. Range: 0-255. Default: 7.
+    CV_BRAKE_SOUND_OFF      = 65 
+    
     def readCV(self, cvId):
-        """Read the @cvId value, assuming that the loco is on a programmaing track. No loco id is required.
+        """Read the @cvId value, assuming that the loco is on a programming track. No loco id is required.
         Note that this method corrects the id-offset, so instead of:
         CV-Address = (CVAdr_MSB << 8) + CVAdr_LSB, where 0=CV1, 1=CV2, 255=CV256, etc.
         the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
@@ -721,9 +777,9 @@ class Z21:
 
     def _get_cvStartVoltage(self):
         return self.readCV(self.CV_START_VOLTAGE)
-    def _set_cvStartVoltage(self, v):
-        assert v in range(1, 128)
-        self.writeCV(self.CV_START_VOLTAGE, v)
+    def _set_cvStartVoltage(self, sv):
+        assert sv in range(1, 128)
+        self.writeCV(self.CV_START_VOLTAGE, sv)
     cvStartVoltage = property(_get_cvStartVoltage, _set_cvStartVoltage)
 
     def _get_cvAcceleration(self):
@@ -733,26 +789,26 @@ class Z21:
         self.writeCV(self.CV_ACCELERATION, a)
     cvAcceleration = property(_get_cvAcceleration, _set_cvAcceleration)
 
-    def _get_deceleration(self):
+    def _get_cvDeceleration(self):
         return self.readCV(self.CV_DECELERATION)
-    def _set_deceleration(self, d):
+    def _set_cvDeceleration(self, d):
         assert d in range(0, 256)
         self.writeCV(self.CV_DECELERATION, d)
-    cvDeceleration = property(_get_deceleration, _set_deceleration)
+    cvDeceleration = property(_get_cvDeceleration, _set_cvDeceleration)
 
-    def _get_maximumSpeed(self):
+    def _get_cvMaximumSpeed(self):
         return self.readCV(self.CV_MAXIMUM_SPEED)
-    def _set_maximumSpeed(self, s):
-        assert s in range(0, 256)
-        self.writeCV(self.CV_MAXIMUM_SPEED, s)
-    cvMaximumSpeed = property(_get_maximumSpeed, _set_maximumSpeed)
+    def _set_cvMaximumSpeed(self, ms):
+        assert ms in range(0, 256)
+        self.writeCV(self.CV_MAXIMUM_SPEED, ms)
+    cvMaximumSpeed = property(_get_cvMaximumSpeed, _set_cvMaximumSpeed)
 
-    def _get_mediumSpeed(self):
+    def _get_cvMediumSpeed(self):
         return self.readCV(self.CV_MEDIUM_SPEED)
-    def _set_mediumSpeed(self, s):
-        assert s in range(0, 256)
-        self.writeCV(self.CV_MEDIUM_SPEED, s)
-    cvMediumSpeed = property(_get_mediumSpeed, _set_mediumSpeed)
+    def _set_cvMediumSpeed(self, ms):
+        assert ms in range(0, 256)
+        self.writeCV(self.CV_MEDIUM_SPEED, ms)
+    cvMediumSpeed = property(_get_cvMediumSpeed, _set_cvMediumSpeed)
 
     def _get_cvVersionNumber(self): # Read only
         return self.readCV(self.CV_VERSION_NUMBER)
@@ -763,15 +819,37 @@ class Z21:
     cvManufacturersId = property(_get_cvManufacturersId)
 
     def resetDecoder(self):
-        self.writeCV(self.CV_MANUFACTURERS_ID, 8) # Special case will reset the decode to manufacture default values.
+        """Special case value will reset the LokSound5 decoder to manufacture default values."""
+        self.writeCV(self.CV_MANUFACTURERS_ID, 8) 
+
+    def _get_cvMotorPWMFrequenz(self):
+        return self.readCV(self.CV_MOTOR_PWM_FREQUENZ)
+    def _set_cvMotorPWMFrequenz(self, f):
+        assert f in range(10, 51)
+        self.writeCV(self.CV_MOTOR_PWM_FREQUENZ, f)
+    motorPWMFrequenz = property(_get_cvMotorPWMFrequenz, _set_cvMotorPWMFrequenz)
 
 
     def _get_cvMasterVolume(self):
         return self.readCV(self.CV_MASTER_VOLUME)
-    def _set_cvMasterVolume(self, s):
-        assert s in range(0, 193)
-        self.writeCV(self.CV_MASTER_VOLUME, s)
+    def _set_cvMasterVolume(self, v):
+        assert v in range(0, 193)
+        self.writeCV(self.CV_MASTER_VOLUME, v)
     cvMasterVolume = property(_get_cvMasterVolume, _set_cvMasterVolume)
+
+    def _get_cvBrakeSoundThresholdOn(self):
+        return self.readCV(self.CV_BRAKE_SOUND_ON)
+    def _set_cvBrakeSoundThresholdOn(self, bst):
+        assert bst in range(0, 256)
+        self.writeCV(self.CV_BRAKE_SOUND_ON, bst)
+    brakeSoundThresholdOn = property(_get_cvBrakeSoundThresholdOn, _set_cvBrakeSoundThresholdOn)
+
+    def _get_cvBrakeSoundThresholdOff(self):
+        return self.readCV(self.CV_BRAKE_SOUND_OFF)
+    def _set_cvBrakeSoundThresholdOff(self, bst):
+        assert bst in range(0, 256)
+        self.writeCV(self.CV_BRAKE_SOUND_OFF, bst)
+    brakeSoundThresholdOff = property(_get_cvBrakeSoundThresholdOff, _set_cvBrakeSoundThresholdOff)
 
 
 class LokSound5(Z21):

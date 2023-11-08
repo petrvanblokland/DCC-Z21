@@ -8,7 +8,7 @@
 #
 #   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
 #
-from z21 import Z21, OFF
+from z21 import Z21, OFF, ON
 
 VERBOSE = False
 HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
@@ -48,16 +48,24 @@ if 0:
         print(f'Set Medium speed {mediumSpeed} --> {c.cvMediumSpeed}')
         c.cvMediumSpeed = mediumSpeed
 
-print(f'CV Version Number {c.cvVersionNumber}') # Read only
+    print(f'CV Version Number {c.cvVersionNumber}') # Read only
 
-manufacturersId = 8 # Setting this value will reset decoder to manufacturer default values.
-print(f'CV Manufacturers ID {c.cvManufacturersId}') # Read only. Use c.resetDecoder() function instead.
-#c.resetDecoder()
+    manufacturersId = 8 # Setting this value will reset decoder to manufacturer default values.
+    print(f'CV Manufacturers ID {c.cvManufacturersId}') # Read only. Use c.resetDecoder() function instead.
+    c.resetDecoder()
 
-masterVolume = 180
-if c.cvMasterVolume != masterVolume:
-    print(f'Set MasterVolum {masterVolume} --> {c.cvMasterVolume}')
-    c.cvMasterVolume = masterVolume
+    print(f'CV Motor PWM Frequenz {c.motorPWMFrequenz}')
+    c.motorPWMFrequenz = 40
+
+    masterVolume = 60 # Low volume. Default is 180
+    if c.cvMasterVolume != masterVolume:
+        print(f'CV Set MasterVolume {masterVolume} --> {c.cvMasterVolume}')
+        c.cvMasterVolume = masterVolume
+
+    print(f'CV Brake Sound Threshold On {c.brakeSoundThresholdOn}')
+    c.brakeSoundThresholdOn = 60
+    print(f'CV Brake Sound Threshold Off {c.brakeSoundThresholdOff}')
+    c.brakeSoundThresholdOff = 5
 
 #print(c.readCV(32))
 

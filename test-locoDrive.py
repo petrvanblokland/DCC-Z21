@@ -8,42 +8,77 @@
 #
 #   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
 #
-from z21 import Z21, OFF
+from z21 import Z21, OFF, ON
 
 HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
 c = Z21(HOST) # New controller object with open LAN socket 
 
-loco = 3 # 2400 Brown
-loco = 5 # LokSound5
+loco = 3 # 2417 Brown
+loco = 3 # LokSound5
 
 # Just in case it is on, currently still disturbing the reading of other packages.
 c.broadcastFlags = 0 
 
 c.setTrackPowerOn()
 print(c.systemState)
+
+if 0:
+    for n in range(20):
+        c.locoFunction(loco, n, ON)
+    c.wait(3)
+    for n in range(20):
+        c.locoFunction(loco, n, OFF)
+
+c.locoFunction(loco, 1, ON) 
+c.locoFunction(loco, 2, OFF) # Horn
+c.locoFunction(loco, 8, ON)
+c.locoFunction(loco, 12, ON)
+c.locoFunction(loco, 26, ON)
+c.locoFunction(loco, 31, ON)
+
+c.cvMasterVolume = 180
+
+if 0:
 #print('LAN_GET_LOCOMODE:', c.getLocoMode(loco))
-c.setHeadLight(loco)
-c.wait(2)
-c.locoDrive(loco, 180) # Drive backwards
-c.wait(10)
-c.stop(loco)
-c.wait(1)
-c.setHeadLight(loco, OFF)
+    c.setHeadRearLight(loco)
+    c.wait(2)
+    c.locoDrive(loco, 100) 
+    c.wait(10)
+    c.locoDrive(loco, 50) # Should trigger break sound
+    c.wait(10)
+
+    c.stop(loco)
+    c.wait(1)
+    c.setHeadRearLight(loco, OFF)
 
 
-if 0:	
-	for loco in range(1, 10):
-		print('Driving loco', loco)
-		c.locoDrive(loco, 150) # Drive backwards
+if 1:
+    print('Driving loco', loco)
+    c.locoDrive(loco, 80) # Drive backwards
 
-	c.wait(10)
+    c.wait(1)
 
-	for loco in range(1, 10):
-		print('Stropping loco', loco)
-		c.locoDrive(loco, 150) # Drive backwards
-		c.stop(loco)
+
+    c.locoFunction(loco, 1, ON)
+    #c.locoFunction(loco, 2, ON) # Horn
+    c.locoFunction(loco, 6, ON)
+    c.locoFunction(loco, 8, ON)
+    c.locoFunction(loco, 26, ON)
+    c.locoFunction(loco, 12, ON)
+    c.locoFunction(loco, 16, ON)
+    c.locoFunction(loco, 28, ON)
+    c.locoFunction(loco, 29, ON)
+    print('Stopping loco', loco)
+    for n in range(80, -2, -2):
+        print(-n)
+        c.wait(1)
+        c.locoDrive(loco, -n) # Drive backwards
+    #c.stop(loco)
 
 #c.setTrackPowerOff()
+
+c.locoFunction(loco, 2, OFF) # Horn
+#c.stop(loco)
 
 c.close()
 
