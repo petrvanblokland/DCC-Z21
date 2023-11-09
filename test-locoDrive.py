@@ -16,6 +16,8 @@ c = Z21(HOST) # New controller object with open LAN socket
 loco = 3 # 2417 Brown
 loco = 3 # LokSound5
 
+#c.resetDecoder()
+
 # Just in case it is on, currently still disturbing the reading of other packages.
 c.broadcastFlags = 0 
 
@@ -31,12 +33,12 @@ if 0:
 
 c.locoFunction(loco, 1, ON) 
 c.locoFunction(loco, 2, OFF) # Horn
-c.locoFunction(loco, 8, ON)
-c.locoFunction(loco, 12, ON)
-c.locoFunction(loco, 26, ON)
-c.locoFunction(loco, 31, ON)
+#c.locoFunction(loco, 8, ON)
+#c.locoFunction(loco, 12, ON)
+#c.locoFunction(loco, 26, ON)
+#c.locoFunction(loco, 31, ON)
 
-c.cvMasterVolume = 180
+c.cvMasterVolume = 20
 
 if 0:
 #print('LAN_GET_LOCOMODE:', c.getLocoMode(loco))
@@ -59,17 +61,23 @@ if 1:
     c.wait(1)
 
 
-    c.locoFunction(loco, 1, ON)
+    c.locoFunction(loco, 1, OFF)
     #c.locoFunction(loco, 2, ON) # Horn
-    c.locoFunction(loco, 6, ON)
     c.locoFunction(loco, 8, ON)
-    c.locoFunction(loco, 26, ON)
-    c.locoFunction(loco, 12, ON)
-    c.locoFunction(loco, 16, ON)
-    c.locoFunction(loco, 28, ON)
-    c.locoFunction(loco, 29, ON)
+    if 0:
+        c.locoFunction(loco, 3, ON) 
+        c.locoFunction(loco, 4, ON) 
+        c.locoFunction(loco, 7, ON) 
+        c.locoFunction(loco, 9, ON) 
+        c.locoFunction(loco, 10, ON) 
+        c.locoFunction(loco, 6, ON)
+        c.locoFunction(loco, 26, ON)
+        c.locoFunction(loco, 12, ON)
+        c.locoFunction(loco, 16, ON)
+        c.locoFunction(loco, 28, ON)
+        c.locoFunction(loco, 29, ON)
     print('Stopping loco', loco)
-    for n in range(80, -2, -2):
+    for n in range(80, -4, -4):
         print(-n)
         c.wait(1)
         c.locoDrive(loco, -n) # Drive backwards
@@ -78,7 +86,10 @@ if 1:
 #c.setTrackPowerOff()
 
 c.locoFunction(loco, 2, OFF) # Horn
-#c.stop(loco)
+c.stop(loco)
+c.locoFunction(loco, 1, OFF)
+c.wait(1)
+c.locoFunction(loco, 1, ON)
 
 c.close()
 

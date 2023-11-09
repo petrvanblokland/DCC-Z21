@@ -618,7 +618,7 @@ class Z21:
         Reply from Z21:
         No standard reply, 4.4 LAN_X_LOCO_INFO to subscribed clients.
 
-        
+        Value byte: TTNNNNNN      
         TT switch type: 00=off, 01=on, 10=toggle,11=not allowed 
         NNNNNN Function index, 0x00=F0 (light), 0x01=F1 etc.
         """
@@ -632,7 +632,8 @@ class Z21:
             raise ValueError(f'locoFunction: Wrong value {value}')
 
         assert function in range(0, 32)
-        functionCode |= function
+        functionCode |= function # Add NNNNNN
+
         cmd = self.LAN_X_SET_LOCO_FUNCTION + loco2Bytes(loco) + functionCode.to_bytes(1, LITTLE_ORDER)
         cmd += XOR(cmd)
         self.send(cmd)
@@ -643,14 +644,20 @@ class Z21:
         """Turn head light on/off, assuming default function=0"""
         self.locoFunction(loco, self.F0_HEAD_REAR_LIGHTING, value) # Standard headlight function, decoder switches on driving direction
         if self.verbose:
-            print(f'setHeadLight(loco={loco}, value={value})')
+            print(f'setHeadRearLight(loco={loco}, value={value})')
 
     def setLighting(self, loco, value=ON):
         """Turn main light on/off, assuming default function=1"""
-        self.locoFunction(loco, F1_LIGHTING, value) # Standard light function
+        self.locoFunction(loco, self.F1_LIGHTING, value) # Standard light function
         if self.verbose:
-            print(f'setLight(loco={loco}, value={value})')
+            print(f'setLighting(loco={loco}, value={value})')
 
+    def setHorn(self, loco, value=ON):
+        """Turn horn on, as function #2 and sound slot #3"""
+        self.locoFunction(loco, self.F2, value)
+        if self.verbose:
+            print(f'setHorn(loco={loco}, value={value})')
+            
     #   B R O A D C A S T I N G  F L A G S
 
     def _get_broadcastFlags(self):
