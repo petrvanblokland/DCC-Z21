@@ -22,7 +22,7 @@ loco = 3 # LokSound5
 c.broadcastFlags = 0 
 
 c.setTrackPowerOn()
-print(c.systemState)
+#print(c.systemState)
 
 if 0:
     for n in range(20):
@@ -31,14 +31,31 @@ if 0:
     for n in range(20):
         c.locoFunction(loco, n, OFF)
 
-c.locoFunction(loco, 1, ON) 
-c.locoFunction(loco, 2, OFF) # Horn
-#c.locoFunction(loco, 8, ON)
-#c.locoFunction(loco, 12, ON)
-#c.locoFunction(loco, 26, ON)
-#c.locoFunction(loco, 31, ON)
+if 0:
+	c.locoFunction(loco, 1, ON) 
+	c.locoFunction(loco, 2, OFF) # Horn
+	#c.locoFunction(loco, 8, ON)
+	#c.locoFunction(loco, 12, ON)
+	#c.locoFunction(loco, 26, ON)
+	#c.locoFunction(loco, 31, ON)
 
-c.cvMasterVolume = 20
+v = OFF
+c.setHeadRearLight(loco, ON)
+#c.wait(1)
+#c.setHeadRearLight(loco, OFF)
+c.setLighting(loco, ON) # Also main motor sound on
+c.setHorn(loco, OFF)
+c.locoFunction(loco, c.F3, v)
+c.locoFunction(loco, c.F4, v)
+c.locoFunction(loco, c.F5, v)
+c.locoFunction(loco, c.F6, v)
+c.locoDrive(loco, -40)
+c.stop(loco)
+
+#c.locoFunction(loco, c.F7, ON)
+#c.locoFunction(loco, c.F8, ON)
+
+c.cvMasterVolume = 70
 
 if 0:
 #print('LAN_GET_LOCOMODE:', c.getLocoMode(loco))
@@ -54,7 +71,7 @@ if 0:
     c.setHeadRearLight(loco, OFF)
 
 
-if 1:
+if 0:
     print('Driving loco', loco)
     c.locoDrive(loco, 80) # Drive backwards
 
@@ -85,11 +102,12 @@ if 1:
 
 #c.setTrackPowerOff()
 
-c.locoFunction(loco, 2, OFF) # Horn
-c.stop(loco)
-c.locoFunction(loco, 1, OFF)
-c.wait(1)
-c.locoFunction(loco, 1, ON)
+if 0:
+	c.locoFunction(loco, 2, OFF) # Horn
+	c.stop(loco)
+	c.locoFunction(loco, 1, OFF)
+	c.wait(1)
+	c.locoFunction(loco, 1, ON)
 
 c.close()
 

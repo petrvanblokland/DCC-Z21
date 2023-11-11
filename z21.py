@@ -569,7 +569,7 @@ class Z21:
 
     F0_HEAD_REAR_LIGHTING = 0 #  Head light/Rear light
     F1_LIGHTING = 1 # Main lighting                                 Soundslot 1, Soundslot 2 (prime mover) 
-    F2 = 2 # Key F2                                                 Soundslot 3, Horn by default
+    F2_HORN = 2 # Key F2                                            Soundslot 3, Horn by default
     F3 = 3 # Key F3                                                 Soundslot 4,
     F4 = 4 # Key F4                                                 Soundslot 5,
     F5 = 5 # Key F5  Optional Load
@@ -654,7 +654,7 @@ class Z21:
 
     def setHorn(self, loco, value=ON):
         """Turn horn on, as function #2 and sound slot #3"""
-        self.locoFunction(loco, self.F2, value)
+        self.locoFunction(loco, self.F2_HORN, value)
         if self.verbose:
             print(f'setHorn(loco={loco}, value={value})')
             
@@ -721,30 +721,120 @@ class Z21:
     # LokSound5 documentation: List of all supported CV's
     # 51989_LokSound_5_ESUKG_EN_InstructionManual_Edition-15_eBook_01.pdf
 
-    CV_LOCO_ADDRESS         = 1 # Address of engine (For Multiprotocol decoders: Range 1-255 for Motorola). Range: 1-127. Default: 3
-    CV_START_VOLTAGE        = 2 # Sets the minimum speed of the engine. Range: 1-127. Default: 3
-    CV_ACCELERATION         = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
-    CV_DECELERATION         = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
-    CV_MAXIMUM_SPEED        = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
-    CV_MEDIUM_SPEED         = 6 # Medium speed of the engine. Use only if 3-point speed table is enabled. For LokSound 5 DCC only.
-    CV_VERSION_NUMBER       = 7 # Internal software version of decoder
-    CV_MANUFACTURERS_ID     = 8 # Manufacturers‘s ID ESU - Writing value 8 in this CV triggers a reset to factory default values. Range: 151.
-    CV_MOTOR_PWM_FREQUENZ   = 9 # Motor PWM frequency as a multiple of 1000 Hz. Range: 10-50. Default: 40.
-
-    CV_LONG_LOCO_ADDRESS    = 17 # Long address of engine (see chapter 9.2). Range: 128-9999. Default: 192.
-
-    CV_INDEX_REGISTER_L     = 32 # Selection page for CV257-512. Range 0-16. Default: 0.
-
+    CV_LOCO_ADDRESS             = 1 # Address of engine (For Multiprotocol decoders: Range 1-255 for Motorola). Range: 1-127. Default: 3
+    CV_START_VOLTAGE            = 2 # Sets the minimum speed of the engine. Range: 1-127. Default: 3
+    CV_ACCELERATION             = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
+    CV_DECELERATION             = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
+    CV_MAXIMUM_SPEED            = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
+    CV_MEDIUM_SPEED             = 6 # Medium speed of the engine. Use only if 3-point speed table is enabled. For LokSound 5 DCC only.
+    CV_VERSION_NUMBER           = 7 # Internal software version of decoder
+    CV_MANUFACTURERS_ID         = 8 # Manufacturers‘s ID ESU - Writing value 8 in this CV triggers a reset to factory default values. Range: 151.
+    CV_MOTOR_PWM_FREQUENZ       = 9 # Motor PWM frequency as a multiple of 1000 Hz. Range: 10-50. Default: 40.
+    CV_ANALOG_MODUS_F1_F8       = 13 # Status of functions F1 to F8 in analogue mode (see chapter 12.7). Range 0-255. Default: 1.
+    CV_ANALOG_MODUS_F9_F15      = 14 # Status of function F0, F9 to F12 in analogue mode (see chapter 12.7). Range 0-63. Defailt: 1.
+    CV_DECODER_LOCK             = 15 # [15,16] Decoder-Lock Function according to NMRA. For details please see: http://www.nmra.org/standards/DCC/WGpublic/0305051/0305051.html. Range 0-255. Default: 0.
+    CV_LOCO_LONG_ADDRESS        = 17 # [17,18] Long address of engine (see chapter 9.2). Range: 128-9999. Default: 192.
+    CV_CONSIST_ADRESS           = 19 # Additional address for consist operation. Value 0 or 128 means: consist address is disabled. 1 – 127 consist address active, normal direction. 129 – 255 consist address active reverse direction
+    CV_CONSIST_MODE_F1_F8       = 21 # Status of functions F1 to F8 in Consist mode Meaning of the bits as in CV 13. Range 0-255. Default: 0.
+    CV_CONSIST_MODE_F9_F12      = 22 # Status of functions FL, F9 to F12 in Consist mode Meaning of the bits as in CV 14. Range 0-255. Default: 0.
+    CV_ADJUST_ACCELERATION      = 23 # Factor for adjusting Acceleration CV 3. Values from 0 to 127 are added to CV 3. If the values are to be subtracted, additionally set bit 7 (value 128). The unit is 0.896 seconds. Range: 0-127. Default: 0.
+    CV_ADJUST_DECELERATION      = 24 # Factor for adjusting the deceleration CV 4. Values from 0 to 127 are ad- ded to CV 3. If the values are to be subtracted, additionally set bit 7 (value 128). The unit is 0.896 seconds. Range: 0-127. Default: 0.
+    CV_BRAKE_MODE               = 27 # 8 Allowed (enabled) Brake modes by bits. Default: 28.
+    CV_RAILCOM_CONFIGURATION    = 28 # Settings for RailCom®
+    CV_CONFIGURATION_REGISTER   = 29 # IThis register contains important information, some of which are only relevant for DCC operation. Default: 12.
+    CV_INDEX_REGISTER_H         = 31 # Selection page for CV257-512. For LokSound 5 usually set to 16. 
+    CV_INDEX_REGISTER_L         = 32 # Selection page for CV257-512. Range 0-16. Default: 0.
+    CV_PROTOCOL_SELECTION       = 47 # Which protocols are active. Please see chapter 9.5. Default: 13.
+    CV_EXTENDED_CONFIGURATION   = 49 # Range 0-255. Value: 19.
+    CV_ANALOGUE_MODE            = 50 # Selection of allowed analogue modes. Range 0-3. Default: 3.
+    CV_K_SLOW_CUTOFF            = 51 # Internal Speedstep, until «K Slow» is active. Range 0-255. Default: 10.
+    CV_BEMF_PARAM_K_SLOW        = 52 # «K» -Portion of the PI-Controller valid for lower speed steps. Range 0-255. Default: 10.
+    CV_CONTROL_REF_VOLTAGE      = 53 # Defines the Back EMF voltage, which the motor should generate at maxi- mum speed. The higher the efficiency of the motor, the higher this value may be set. If the engine does not reach maximum speed, reduce this pa- rameter. Range: 0-255. Default: 130.
+    CV_LOAD_CONTROL_PARAMS_K    = 54 # «K»–component of the internal PI-controller. Defines the effect of load control. The higher the value, the stronger the effect of Back EMF control. Range 0-255. Default: 50.
+    CV_LOAD_CONTROL_PARAMS_I    = 55 # «I»–component of the internal PI-controller. Defines the momentum (iner- tia) of the motor. The higher the momentum of the motor (large flywheel or bigger motor), the lower this value has to be set. The higher the value, the stronger the effect of Back EMF control. Range 0-255. Default: 100.
+    CV_BEMF_INFLUENCE_VMIN      = 56 # 0-100%. Defines the “Strengh” of the BEMF at minimum speed step. Range: 1-255. Default: 255.
+    CV_STEAM_CHUFF_SYNCH_1      = 57 # Defines the steam chuff synchronisation. See chapter 13.3. Range: 1-255. Default: 30.
+    CV_STEAM_CHUFF_SYNCH_2      = 58 # Defines the steam chuff synchronisation. See chapter 13.3. Range: 1-255. Default: 20.
     # The master volume control controls all sound effects. A value of „0“ would mute the decoder completely. 
     # The resulting sound vo- lume for each individual sound effect therefore is a mixture of the master volume control 
     # settings and the individual volume control sliders. Range: 0-192. Default: 180.
-    CV_MASTER_VOLUME        = 63 
+    CV_MASTER_VOLUME            = 63 
     # If the actual loco speed step is smaller than or equals the value indicated here, the brake sound is triggered. 
     # Compare chapter 13.4. Range: 0-255. Default: 60.
-    CV_BRAKE_SOUND_ON       = 64 
+    CV_BRAKE_SOUND_ON           = 64 
     # If the actual loco speed step is smaller than the one indicated here (up to 255), the brake sound will be switched off again. 
     # Compare chapter 13.4. Range: 0-255. Default: 7.
-    CV_BRAKE_SOUND_OFF      = 65 
+    CV_BRAKE_SOUND_OFF          = 65 
+    CV_FORWARD_TRIMM            = 66 # Divided by 128 is the factor used to multiply the motor voltage when driving forward. The value 0 deactivates the trim. Range: 0-255. Default: 128.
+    CV_SPEED_TABLE              = 67 # [65:95] Defines motor voltage for speed steps. The values „in between“ will be interpolated. Range 0-255
+    CV_REVERSE_TRIMM            = 95 # Divided by 128 is the factor used to multiply the motor voltage when driving backwards. Value 0 deactivates the trim. Range: 0-255. Default: 128.
+    CV_SHUNTING_MODE_TRIMM      = 101 # Divided by 128, this gives the factor by which the motor voltage is multi- plied when the shunting gear is active. See section 10.1.2. Range: 0-128. Default: 64.
+    CV_BREAK_MODE_EXIT_DELAY    = 102 # Time as a multiple of 16 milliseconds that must pass before a detected braking distance is left again. See section 10.4.6. Range: 0-255. Default: 12.
+    CV_LOAD_ADJ_OPTIONAL_LOAD   = 103 # Divided by 128, this gives the factor that changes CV3, CV4 and the sound when „Optional Load” is active. See section 10.7. Range: 0-255. Default: 0.
+    CV_LOAD_ADJ_PRIMARY_LOAD    = 104 # Divided by 128, this gives the factor that changes CV3, CV4 and the sound when „Primry Load” is active. See section 10.7. Range: 0-255. Default: 255.
+    CV_USER_CV1                 = 105 # Free CV. Here you are able to save what ever you want. Range: 0-255. Default: 0.
+    CV_USER_CV2                 = 106 # Free CV. Here you are able to save what ever you want. Range: 0-255. Default: 0.
+    CV_GEARBOX_BACKLASH         = 111 # Time as a multiple of 16 mS, for which the motor runs at minimum speed after reversing the direction to prevent gear box jerking. Range: 0-255. DefaultL 0.
+    CV_FREQUENCY_FLASH_LIGHTS   = 112 # Flashing frequency for Strobe lighting effects. Multiple of 0.065536 seconds. See section 12.5.4. Range: 0-255. Default: 20.
+    CV_POWER_FAIL_BYPASS        = 133 # The time that the decoder bridges via the PowerPack after an interruption of voltage. Unit: A multiple of 0.032768 sec. See section 6.12.2. Range: 0-255. Default: 32.
+    CV_SLOW_SPEED_BEMF_SAMPL    = 116 # Frequency of BEMF measurement in 0.1 milliseconds at speed step 1. Range: 50-200. Default: 50.
+    CV_FULL_SPEED_BEMF_SAMPL    = 117 # Frequency of BEMF measurement in 0.1 milliseconds at speed step 255. Range: 50-200. Default: 150.
+    CV_SLOW_SPEED_BEMF_GAP_VMIN = 118 # Length of the BEMF measuring gap in 0.1 milliseconds at speed step 1. Range: 10-20. Default: 150. ???
+    CV_FULL_SPEED_BEMF_GAP_VMIN = 118 # Length of the BEMF measuring gap in 0.1 milliseconds at speed step 255. Range: 10-20. Default: 15.
+    CV_ABC_MODE_SLOW_DRIVE      = 123 # Speed which is valid in the slow driving section during ABC braking. Range: 0-255. Default: 100.
+    CV_EXTENDED_CONFIGURATION_2 = 124 # Additional important settings for decoders. Default: 21.
+    CV_START_VOLTAGE_ANALOG_DC  = 125 # See section 10.8. Range: 0-255. Default: 90.
+    CV_MAX_SPEED_ANALOG_DC      = 126 # See section 10.8. Range: 0-255. Default: 130.
+    CV_START_VOLTAGE_ANALOG_AC  = 127 # See section 10.8. Range: 0-255. Default: 90.
+    CV_MAX_SPEED_ANALOG_AC      = 128 # See section 10.8. Range: 0-255. Default: 130.
+    CV_ANALOG_FUNC_HYSTERESE    = 129 # Offset voltage for functions in analogue mode. Chapter 10.8. Range: 0-255. Default: 15.
+    CV_ANALOG_MOTOR_HYSTERESE   = 130 # Offset voltage for motor functions in analogue mode. Chapter 10.8. Range: 0-255. Default: 5.
+    CV_GRADE_CROSSING_HOLD_TIME = 132 # Grade Crossing holding time. See chapter 12.5.3. Range: 0-255. Default: 80.
+    CV_SOUND_FADER              = 133 # Volume when sound fader is active. See chapter 13.5. Range: 0-255. Default: 128.
+    CV_ABC_MODE_SENSIBILITY     = 134 # Threshold, from which asymmentry on ABC shall be recognised. Range: 4-32. Default: 10.
+    CV_SMOKE_UNIT_TRIM_FAN      = 138 # Divided by 128, this gives the factor by which the fan speed of synchronized smoke units can be adjusted. Range: 0-255. Default: 128.
+    CV_SMOKE_UNIT_TRIM_TEMP     = 139 # Divided by 128, this gives the factor by which the temperature of synchronized smoke units can be adjusted. Range: 0-255. Default: 128.
+    CV_SMOKE_TIMEOUT            = 140 # Time until automatic shutdown of the smoke unit. Range: 0-255. Default: 255.
+    CV_SMOKE_CHUFF_MIN          = 141 # Minimum duration of a steam chuff of an external smoke unit in 0.041 resolution. Range: 0-255. Default: 10.
+    CV_SMOKE_CHUFF_MAX          = 142 # Maximum duration of a steam chuff of an external smoke unit in 0.041 resolution. Range: 0-255. Default: 125.
+    CV_SMOKE_CHUF_LENGTH        = 143 # Divided by 128, this gives the factor by which the duration of the steam chuffs can be adjusted relative to the trigger pulses. Range: 0-255. Default: 255.
+    CV_SMOKE_PREHEAT_TEMP       = 144 # Preheating temperature in degrees Celsius for secondary smoke generators (cylinder smoke unit). Range: 0-255. Default: 150.
+    CV_ABC_SHUTTLE_TRAIN_HOLD   = 149 # Time in seconds, which has to be passed for ABC shuttle train operation, before the direction of travel is changed. See section 10.4.4.3. Range: 0-255. Default: 255.
+    CV_HLU_SPEEDLIMIT_1         = 150 # HLU Speed limit 1. Internal speedstep. Range: 0-255. Default: 42.
+    CV_HLU_SPEEKLIMIT_2U        = 151 # HLU Speed limit 2 (U). Internal speedstep. Range: 0-255. Default: 85.
+    CV_HLU_SPEEDLIMIT_3         = 152 # HLU Speed limit 3. Internal speedstep. Range: 0-255. Default: 127.
+    CV_HLU_SPEEKLIMIT_4L        = 153 # HLU Speed limit 4 (L). Internal speedstep. Range: 0-255. Default: 170.
+    CV_HLU_SPEEKLIMIT_5         = 154 # HLU Speed limit 5. Internal speedstep. Range: 0-255. Default: 212.
+    CV_SOUND_CV1                = 155 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV2                = 156 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV3                = 157 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV4                = 158 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV5                = 159 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV6                = 160 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV7                = 161 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV8                = 162 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV9                = 163 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV10               = 164 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV11               = 165 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV12               = 166 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV13               = 167 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV14               = 168 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV15               = 169 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_SOUND_CV16               = 170 # 16 CVs for selecting sounds that can be assigned within sound projects. Please note the documentation for the sound project. Range: 0-255. Default: 0.
+    CV_BRAKE_FUNCTION_1_DEC     = 179 # Value of which 33% of CV 4 will be deducted if the Brake Function 1 is active. See section 10.6. Range: 0-255. Defualt: 80.
+    CV_BRAKE_FUNCTION_2_DEC     = 180 # Value of which 33% of CV 4 will be deducted if the Brake Function 2 is active. See section 10.6. Range: 0-255. Defualt: 40.
+    CV_BRAKE_FUNCTION_3_DEC     = 181 # Value of which 33% of CV 4 will be deducted if the Brake Function 3 is active. See section 10.6. Range: 0-255. Defualt: 40.
+    CV_BRAKE_FUNCTION_1_MAX     = 182 # Highest speed step that can be reached when Brake function 1 is active. Range: 0-126. Default: 0.
+    CV_BRAKE_FUNCTION_2_MAX     = 183 # Highest speed step that can be reached when Brake function 2?? is active. Range: 0-126. Default: 0.
+    CV_BRAKE_FUNCTION_3_MAX     = 184 # Highest speed step that can be reached when Brake function 3?? is active. Range: 0-126. Default: 0.
+    CV_AUTO_DECOULING_SPEED     = 246 # Speed of the loco while decoupling; the higher the value, the faster the loco. Value 0 switches the automatic coupler off. Automatic decoupling is only active if the function output is adjusted to „pulse“ or „coupler“. Range: 0-255. Default: 0.
+    CV_DECOUPLING_REMOVE_TIME   = 247 # This value multiplied with 0.016 defines the time the loco needs for moving away from the train (automatic decoupling). Range: 0-255. Default: 0.
+    CV_DECOUPLING_PUSH_TIME     = 248 # This value multiplied with 0.016 defines the time the loco needs for pushing against the train (automatic decoupling). Range: 0-255. Default: 0.
+    CV_MIN_STEAM_CHUFF_DISTANCE = 249 # Minimum distance of two steam chuffs, independant from sensor data. Compage chapter 13.3. Range: 0-255. Default: 0.
+    CV_SEC_STEAM_CHUFF_TRIGGER  = 250 # Defines the distance between two consecutive steam chuffs for the secondary steam chuff generator. The value indicates the promilles the steam chuff distances of the secondary steam chuff generator ought to be shorter then those of the primary steam chuff generator. It is needed for steam locos with two independent boogies, such as „Big Boy” or „Mallet”. Range: 0-255. Default: 0.
+    CV_CONSTANT_BRAKE_MODE      = 253 # Determines the constant brake mode. Only active, if CV254 > 0. Range: 0-255. Default: 0.
+    CV_CONSTANT_BRAKE_DIST_FORW = 254 # A value > 0 determines the way of brake distance it adheres to, indepen- dent from speed. Range: 0-255. Default: 0.
+    CV_CONSTANT_BRAKE_DIST_BACK = 255 # Constant braking distances during reverse driving. Only active, if value > 0, otherwise the value of CV 254 is used. Useful for reversible trains. Range: 0-255. Default: 0.
     
     def readCV(self, cvId):
         """Read the @cvId value, assuming that the loco is on a programming track. No loco id is required.
