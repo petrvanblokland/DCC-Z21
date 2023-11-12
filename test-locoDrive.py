@@ -6,12 +6,13 @@
 #
 #    TYPETR z21.py
 #
-#   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
+#   [Layout.c] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
 #
-from z21 import Z21, OFF, ON
+from z21 import Layout, OFF, ON
 
-HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-c = Z21(HOST) # New controller object with open LAN socket 
+host = '192.168.178.242' # URL on LAN of the Z21/DR5000
+layout = Layout(host)
+c = layout.c # Get controller object with open LAN socket 
 
 loco = 3 # 2417 Brown
 loco = 3 # LokSound5
@@ -39,23 +40,34 @@ if 0:
 	#c.locoFunction(loco, 26, ON)
 	#c.locoFunction(loco, 31, ON)
 
-v = OFF
-c.setHeadRearLight(loco, ON)
-#c.wait(1)
-#c.setHeadRearLight(loco, OFF)
-c.setLighting(loco, ON) # Also main motor sound on
-c.setHorn(loco, OFF)
-c.locoFunction(loco, c.F3, v)
-c.locoFunction(loco, c.F4, v)
-c.locoFunction(loco, c.F5, v)
-c.locoFunction(loco, c.F6, v)
-c.locoDrive(loco, -40)
-c.stop(loco)
+if 0:
+	v = OFF
+	c.setHeadRearLight(loco, ON)
+	#c.wait(1)
+	#c.setHeadRearLight(loco, OFF)
+	c.setLighting(loco, ON) # Also main motor sound on
+	c.setHorn(loco, OFF)
+	c.locoFunction(loco, c.F3, v)
+	c.locoFunction(loco, c.F4, v)
+	c.locoFunction(loco, c.F5, v)
+	c.locoFunction(loco, c.F6, v)
+	c.locoFunction(loco, c.F7, v)
+	c.locoFunction(loco, c.F8, v)
+	c.locoFunction(loco, c.F9, v)
+	c.locoFunction(loco, c.F10, v)
+	c.locoFunction(loco, c.F11, v)
+	c.locoFunction(loco, c.F12, v)
+	c.locoDrive(loco, 80)
+	c.brakeSoundThresholdOn = 70
+	c.brakeSoundThresholdOff = 7
+	c.locoDrive(loco, -30)
+	c.wait(4)
+	c.stop(loco)
 
 #c.locoFunction(loco, c.F7, ON)
 #c.locoFunction(loco, c.F8, ON)
 
-c.cvMasterVolume = 70
+c.cvMasterVolume = 160
 
 if 0:
 #print('LAN_GET_LOCOMODE:', c.getLocoMode(loco))
@@ -71,7 +83,7 @@ if 0:
     c.setHeadRearLight(loco, OFF)
 
 
-if 0:
+if 1:
     print('Driving loco', loco)
     c.locoDrive(loco, 80) # Drive backwards
 
@@ -109,6 +121,7 @@ if 0:
 	c.wait(1)
 	c.locoFunction(loco, 1, ON)
 
+c.stop(loco)
 c.close()
 
 

@@ -6,8 +6,9 @@
 #
 #    TYPETR z21.py
 #
-#   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
-#                                          <----- (2-wire rails) -----> [LokPilot5]
+#   [X21] <----------- (LAN) ---> [DR5000]  <----- (2-wire rails) -----> [ESU-LokSound5]
+#                                           <----- (2-wire rails) -----> [ESU-LokPilot5]
+#   [SwitchPilot] <--- (LAN) ---> [DR5000]  <----- (2-wire rails) -----> [ESU-SwitchPilot]
 #
 #   Documentation: z21-lan-protokoll-en.pdf
 #   https://www.z21.eu/en/downloads/manuals
@@ -91,10 +92,10 @@ class Z21:
     """The Z21 class implements all functionsto communicate with a Z21 supporting controller device,
     such as DR5000, through a LAN connection.
 
-    [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
+    [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5 & LokPilot5]
 
-    For now, we focus on the DR5000 and LokSound5 for practical reasons, but it's surely intended
-    to extend the functions to other means of communication, other controllers and other decoders.
+    For now, we focus on the DR5000 and LokSound5/LokPilot5 for practical reasons, but it's surely intended
+    to extend the functions to other means of communication, other controllers, other decoders, sensors, servos, signals and turnouts..
     """
 
     #   Z 2 1  C O M M A N D  T E M P L A T E S
@@ -753,16 +754,16 @@ class Z21:
     CV_LOAD_CONTROL_PARAMS_K    = 54 # «K»–component of the internal PI-controller. Defines the effect of load control. The higher the value, the stronger the effect of Back EMF control. Range 0-255. Default: 50.
     CV_LOAD_CONTROL_PARAMS_I    = 55 # «I»–component of the internal PI-controller. Defines the momentum (iner- tia) of the motor. The higher the momentum of the motor (large flywheel or bigger motor), the lower this value has to be set. The higher the value, the stronger the effect of Back EMF control. Range 0-255. Default: 100.
     CV_BEMF_INFLUENCE_VMIN      = 56 # 0-100%. Defines the “Strengh” of the BEMF at minimum speed step. Range: 1-255. Default: 255.
-    CV_STEAM_CHUFF_SYNCH_1      = 57 # Defines the steam chuff synchronisation. See chapter 13.3. Range: 1-255. Default: 30.
-    CV_STEAM_CHUFF_SYNCH_2      = 58 # Defines the steam chuff synchronisation. See chapter 13.3. Range: 1-255. Default: 20.
-    # The master volume control controls all sound effects. A value of „0“ would mute the decoder completely. 
+    CV_STEAM_CHUFF_SYNCH_1      = 57 # [LokSound5 only] Defines the steam chuff synchronisation. See chapter 13.3. Range: 1-255. Default: 30.
+    CV_STEAM_CHUFF_SYNCH_2      = 58 # [LokSound5 only] Defines the steam chuff synchronisation. See chapter 13.3. Range: 1-255. Default: 20.
+    # [LokSound5 only] The master volume control controls all sound effects. A value of „0“ would mute the decoder completely. 
     # The resulting sound vo- lume for each individual sound effect therefore is a mixture of the master volume control 
     # settings and the individual volume control sliders. Range: 0-192. Default: 180.
     CV_MASTER_VOLUME            = 63 
-    # If the actual loco speed step is smaller than or equals the value indicated here, the brake sound is triggered. 
+    # [LokSound5 only] If the actual loco speed step is smaller than or equals the value indicated here, the brake sound is triggered. 
     # Compare chapter 13.4. Range: 0-255. Default: 60.
     CV_BRAKE_SOUND_ON           = 64 
-    # If the actual loco speed step is smaller than the one indicated here (up to 255), the brake sound will be switched off again. 
+    # [LokSound5 only] If the actual loco speed step is smaller than the one indicated here (up to 255), the brake sound will be switched off again. 
     # Compare chapter 13.4. Range: 0-255. Default: 7.
     CV_BRAKE_SOUND_OFF          = 65 
     CV_FORWARD_TRIMM            = 66 # Divided by 128 is the factor used to multiply the motor voltage when driving forward. The value 0 deactivates the trim. Range: 0-255. Default: 128.
@@ -780,7 +781,7 @@ class Z21:
     CV_SLOW_SPEED_BEMF_SAMPL    = 116 # Frequency of BEMF measurement in 0.1 milliseconds at speed step 1. Range: 50-200. Default: 50.
     CV_FULL_SPEED_BEMF_SAMPL    = 117 # Frequency of BEMF measurement in 0.1 milliseconds at speed step 255. Range: 50-200. Default: 150.
     CV_SLOW_SPEED_BEMF_GAP_VMIN = 118 # Length of the BEMF measuring gap in 0.1 milliseconds at speed step 1. Range: 10-20. Default: 150. ???
-    CV_FULL_SPEED_BEMF_GAP_VMIN = 118 # Length of the BEMF measuring gap in 0.1 milliseconds at speed step 255. Range: 10-20. Default: 15.
+    CV_FULL_SPEED_BEMF_GAP_VMIN = 119 # Length of the BEMF measuring gap in 0.1 milliseconds at speed step 255. Range: 10-20. Default: 15.
     CV_ABC_MODE_SLOW_DRIVE      = 123 # Speed which is valid in the slow driving section during ABC braking. Range: 0-255. Default: 100.
     CV_EXTENDED_CONFIGURATION_2 = 124 # Additional important settings for decoders. Default: 21.
     CV_START_VOLTAGE_ANALOG_DC  = 125 # See section 10.8. Range: 0-255. Default: 90.
@@ -792,13 +793,13 @@ class Z21:
     CV_GRADE_CROSSING_HOLD_TIME = 132 # Grade Crossing holding time. See chapter 12.5.3. Range: 0-255. Default: 80.
     CV_SOUND_FADER              = 133 # Volume when sound fader is active. See chapter 13.5. Range: 0-255. Default: 128.
     CV_ABC_MODE_SENSIBILITY     = 134 # Threshold, from which asymmentry on ABC shall be recognised. Range: 4-32. Default: 10.
-    CV_SMOKE_UNIT_TRIM_FAN      = 138 # Divided by 128, this gives the factor by which the fan speed of synchronized smoke units can be adjusted. Range: 0-255. Default: 128.
-    CV_SMOKE_UNIT_TRIM_TEMP     = 139 # Divided by 128, this gives the factor by which the temperature of synchronized smoke units can be adjusted. Range: 0-255. Default: 128.
-    CV_SMOKE_TIMEOUT            = 140 # Time until automatic shutdown of the smoke unit. Range: 0-255. Default: 255.
-    CV_SMOKE_CHUFF_MIN          = 141 # Minimum duration of a steam chuff of an external smoke unit in 0.041 resolution. Range: 0-255. Default: 10.
-    CV_SMOKE_CHUFF_MAX          = 142 # Maximum duration of a steam chuff of an external smoke unit in 0.041 resolution. Range: 0-255. Default: 125.
-    CV_SMOKE_CHUF_LENGTH        = 143 # Divided by 128, this gives the factor by which the duration of the steam chuffs can be adjusted relative to the trigger pulses. Range: 0-255. Default: 255.
-    CV_SMOKE_PREHEAT_TEMP       = 144 # Preheating temperature in degrees Celsius for secondary smoke generators (cylinder smoke unit). Range: 0-255. Default: 150.
+    CV_SMOKE_UNIT_TRIM_FAN      = 138 # [LokSound5 only] Divided by 128, this gives the factor by which the fan speed of synchronized smoke units can be adjusted. Range: 0-255. Default: 128.
+    CV_SMOKE_UNIT_TRIM_TEMP     = 139 # [LokSound5 only] Divided by 128, this gives the factor by which the temperature of synchronized smoke units can be adjusted. Range: 0-255. Default: 128.
+    CV_SMOKE_TIMEOUT            = 140 # [LokSound5 only] Time until automatic shutdown of the smoke unit. Range: 0-255. Default: 255.
+    CV_SMOKE_CHUFF_MIN          = 141 # [LokSound5 only] Minimum duration of a steam chuff of an external smoke unit in 0.041 resolution. Range: 0-255. Default: 10.
+    CV_SMOKE_CHUFF_MAX          = 142 # [LokSound5 only] Maximum duration of a steam chuff of an external smoke unit in 0.041 resolution. Range: 0-255. Default: 125.
+    CV_SMOKE_CHUF_LENGTH        = 143 # [LokSound5 only] Divided by 128, this gives the factor by which the duration of the steam chuffs can be adjusted relative to the trigger pulses. Range: 0-255. Default: 255.
+    CV_SMOKE_PREHEAT_TEMP       = 144 # [LokSound5 only] Preheating temperature in degrees Celsius for secondary smoke generators (cylinder smoke unit). Range: 0-255. Default: 150.
     CV_ABC_SHUTTLE_TRAIN_HOLD   = 149 # Time in seconds, which has to be passed for ABC shuttle train operation, before the direction of travel is changed. See section 10.4.4.3. Range: 0-255. Default: 255.
     CV_HLU_SPEEDLIMIT_1         = 150 # HLU Speed limit 1. Internal speedstep. Range: 0-255. Default: 42.
     CV_HLU_SPEEKLIMIT_2U        = 151 # HLU Speed limit 2 (U). Internal speedstep. Range: 0-255. Default: 85.
@@ -831,17 +832,38 @@ class Z21:
     CV_DECOUPLING_REMOVE_TIME   = 247 # This value multiplied with 0.016 defines the time the loco needs for moving away from the train (automatic decoupling). Range: 0-255. Default: 0.
     CV_DECOUPLING_PUSH_TIME     = 248 # This value multiplied with 0.016 defines the time the loco needs for pushing against the train (automatic decoupling). Range: 0-255. Default: 0.
     CV_MIN_STEAM_CHUFF_DISTANCE = 249 # Minimum distance of two steam chuffs, independant from sensor data. Compage chapter 13.3. Range: 0-255. Default: 0.
-    CV_SEC_STEAM_CHUFF_TRIGGER  = 250 # Defines the distance between two consecutive steam chuffs for the secondary steam chuff generator. The value indicates the promilles the steam chuff distances of the secondary steam chuff generator ought to be shorter then those of the primary steam chuff generator. It is needed for steam locos with two independent boogies, such as „Big Boy” or „Mallet”. Range: 0-255. Default: 0.
+    CV_SEC_STEAM_CHUFF_TRIGGER  = 250 # [LokSound5 only] Defines the distance between two consecutive steam chuffs for the secondary steam chuff generator. The value indicates the promilles the steam chuff distances of the secondary steam chuff generator ought to be shorter then those of the primary steam chuff generator. It is needed for steam locos with two independent boogies, such as „Big Boy” or „Mallet”. Range: 0-255. Default: 0.
     CV_CONSTANT_BRAKE_MODE      = 253 # Determines the constant brake mode. Only active, if CV254 > 0. Range: 0-255. Default: 0.
     CV_CONSTANT_BRAKE_DIST_FORW = 254 # A value > 0 determines the way of brake distance it adheres to, indepen- dent from speed. Range: 0-255. Default: 0.
     CV_CONSTANT_BRAKE_DIST_BACK = 255 # Constant braking distances during reverse driving. Only active, if value > 0, otherwise the value of CV 254 is used. Useful for reversible trains. Range: 0-255. Default: 0.
-    
-    def readCV(self, cvId):
+
+    BLOCK_MAP_CV32 = dict(
+        A=3
+    )
+    def readCV(self, cvId, pageIndex=0):
         """Read the @cvId value, assuming that the loco is on a programming track. No loco id is required.
         Note that this method corrects the id-offset, so instead of:
         CV-Address = (CVAdr_MSB << 8) + CVAdr_LSB, where 0=CV1, 1=CV2, 255=CV256, etc.
         the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
+
+        This method does automatic recognize CV access by page/block index (for cvID >= 257)
+        The CVs ranging from 257 – 511 are “indexed”. This means that the meaning of any of these CVs can change depending 
+        on the value of the so-called “Index register”.
+        If you change the value of the index register, the meaning and the value of the CV itself will be also changed. 
+        This method allows to use every CV between 257–511 several times and solves the problem regarding CV shortage.
+        CV 31 and CV 32, which are also so-called “index register”, determines the meaning of CV 257–511 as well. 
+        If you change both the CVs 31 and 32, you simultaneously change the meaning and the values of CV 257–511.
+
+        The meaning of all other CVs (1–256) is not influenced by the value of the index register.
+        So should you ever change any of the CVs located in the range from 257, please make sure first that the index registers 
+        CV31 and CV32 have the indicated values.
+        At this state, CV 31 must always have value 16. Page index CV 32 may have the values in range 0-16. Default: 0.
         """
+        if pageIndex and cvId >= 257:
+            assert pageIndex in range(0, 16)
+            self.writeCV(self.CV_INDEX_REGISTER_H, 16) # Always this value for LokSound5. Set value, just to be sure.
+            self.writeCV(self.CV_INDEX_REGISTER_L, pageIndex) # Needs to write in mode pageIndex = 0
+
         cmd = self.LAN_X_CV_READ + loco2Bytes(cvId-1) # Corrected address offset by 1
         cmd += XOR(cmd[4:])
         self.send(cmd)
@@ -849,20 +871,38 @@ class Z21:
         if self.verbose:
             printCmd(f'LAN_X_CV_READ ', cmd)
             printCmd(f'{len(bb)} LAN_X_CV_READ (result) ', bb)
+
+        # Reset the page index, if it was changed. 
+        # This is a bit of overhead, in case multiple CV's are written/read from the same page index.
+        if pageIndex and cvId >= 257:
+            self.writeCV(self.CV_INDEX_REGISTER_L, 0) # Needs to write in mode pageIndex = 0
+
         return int.from_bytes(bb[8:9], LITTLE_ORDER)
 
-    def writeCV(self, cvId, cvValue):
+    def writeCV(self, cvId, cvValue, pageIndex=0):
         """Write the @cvId @value, assuming that the loco is on a programming track. No loco id is required.
         Note that this method corrects the id-offset, so instead of:
         CV-Address = (CVAdr_MSB << 8) + CVAdr_LSB, where 0=CV1, 1=CV2, 255=CV256, etc.
         the @cvId is the true CV address: 1=CV1, 2=CV2, 256=CV256, etc.
         Since the writing of a CV makes the controller/decoder write back on on the stream, don't forget to clean it.
         """
+        if pageIndex and cvId >= 257:
+            assert pageIndex in range(0, 16)
+            self.writeCV(self.CV_INDEX_REGISTER_H, 16) # Always this value for LokSound5. Set value, just to be sure.
+            self.writeCV(self.CV_INDEX_REGISTER_L, pageIndex) # Needs to write in pageIndex = 0
+
         cmd = self.LAN_X_CV_WRITE + loco2Bytes(cvId-1) + cvValue.to_bytes(1, LITTLE_ORDER) # Corrected address offset by 1
         cmd += XOR(cmd[4:])
         self.send(cmd)
+
+        # Recursively reset the page index, if it was changed. 
+        # This is a bit of overhead, in case multiple CV's are written/read from the same page index. 
+        if pageIndex and cvId >= 257:
+            self.writeCV(self.CV_INDEX_REGISTER_L, 0) # Needs to write in mode pageIndex = 0
+
         # The send generates feedback, makes sure to clear the socket for all packages.
-        bb = self.receiveBytes() # Read all bytes on the line
+        bb = self.receiveBytes() # Read all bytes on the line, cleaning the buffer.
+
 
     # Running on the Programming Track
 
@@ -948,8 +988,15 @@ class Z21:
         self.writeCV(self.CV_BRAKE_SOUND_OFF, bst)
     brakeSoundThresholdOff = property(_get_cvBrakeSoundThresholdOff, _set_cvBrakeSoundThresholdOff)
 
+class BaseDecoder:
+    """This will contain the knowledge of specific decoders: which functions and CV are supported.
+    The Z21 then can query of a train decoder or turnout decoder is capable of performing a certain task.
+    """
 
-class LokSound5(Z21):
+class LokPilot(BaseDecoder):
+    pass
+
+class LokSound5(LokPilot):
     """Subclassing for specifically LocSound5 decoder functionality. This inheriting class will know about
     specific functions of the LokSound5 and offers an more abstract level of interface. Similarly, there also
     can be defined groups or sequences of functions under a single method name.
@@ -957,10 +1004,37 @@ class LokSound5(Z21):
     Future change: the main Z21 class should detect which decoder is used in a certain loco, and switch behaviour
     accordingly. We may need to introduce another level of abstraction later."""
 
+class SwitchPilotServo(BaseDecoder):
+    """These need to become a Decoder subclass, not a Z21 subclass."""
+
+class Layout:
+    """Main Layout objects, containing the tracks and stationary such as all Turnouts and Signals.
+    The Layout offers a high-level API to all parts (stationary, locomotives and wagons).
+    It also will include the automated schedule to run."""
+    def __init__(self, host, verbose=True):
+        self.c = Z21(host, verbose=verbose)
+
+#   S K E T C H  O T H E R  F U T U R E  C L A S S E S
+
+class BaseObject:
+    """Base of all objects that hold a decoder: Locomotive, Wagon, Turnout, Signal>"""
+
+class Locomotive(BaseObject):
+    pass
+
+class Wagon(BaseObject):
+    pass
+
+class Turnout(BaseObject):
+    pass
+
+class Signal(BaseObject):
+    pass
 
 if __name__ == "__main__":
-    HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-    c = Z21(HOST, verbose=True) # New controller object with open LAN socket
+    host = '192.168.178.242' # URL on LAN of the Z21/DR5000
+    layout = Layout(host)
+    c = layout.c # Get layout controller
     print('Start Z21 controller', c)
     print('Version', c.version)
     print('Serial number', c.serialNumber)

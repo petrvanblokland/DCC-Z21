@@ -6,12 +6,13 @@
 #
 #    TYPETR z21.py
 #
-#   [z21.py] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
+#   [Layout.c] <----- (LAN) -----> [DR5000]  <----- (2-wire rails) -----> [LokSound5]
 #
-from z21 import Z21
+from z21 import Layout
 
-HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-c = Z21(HOST, verbose=True) # New controller object with open LAN socket 
+host = '192.168.178.242' # URL on LAN of the Z21/DR5000
+layout = Layout(host)
+c = layout.c # Get controller object with open LAN socket 
 
 # Handle the broadcast flags.
 # TODO: When flag 0x01 is on, there seems to be interference with "Normal" commands, expecting their packages.
