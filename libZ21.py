@@ -4,9 +4,9 @@
 #     Usage by MIT License
 # ..............................................................................
 #
-#    TYPETR z21.py
+#    TYPETR libZ21.py
 #
-#   [X21] <----------- (LAN) ---> [DR5000]  <----- (2-wire rails) -----> [ESU-LokSound5]
+#   [Z21] <----------- (LAN) ---> [DR5000]  <----- (2-wire rails) -----> [ESU-LokSound5]
 #                                           <----- (2-wire rails) -----> [ESU-LokPilot5]
 #   [SwitchPilot] <--- (LAN) ---> [DR5000]  <----- (2-wire rails) -----> [ESU-SwitchPilot]
 #
@@ -568,9 +568,9 @@ class Z21:
 
     #   L O C O  F U N C T I O N S
 
-    F0_HEAD_REAR_LIGHTING = 0 #  Head light/Rear light
-    F1_LIGHTING = 1 # Main lighting                                 Soundslot 1, Soundslot 2 (prime mover) 
-    F2_HORN = 2 # Key F2                                            Soundslot 3, Horn by default
+    F0 = F0_HEAD_REAR_LIGHTING = 0 #  Head light/Rear light
+    F1 = F1_LIGHTING = 1 # Main lighting                            Soundslot 1, Soundslot 2 (prime mover) 
+    F2 = F2_HORN = 2 # Key F2                                       Soundslot 3, Horn by default
     F3 = 3 # Key F3                                                 Soundslot 4,
     F4 = 4 # Key F4                                                 Soundslot 5,
     F5 = 5 # Key F5  Optional Load
@@ -1012,7 +1012,7 @@ class Layout:
     The Layout offers a high-level API to all parts (stationary, locomotives and wagons).
     It also will include the automated schedule to run."""
     def __init__(self, host, verbose=True):
-        self.c = Z21(host, verbose=verbose)
+        self.z21 = Z21(host, verbose=verbose)
 
 #   S K E T C H  O T H E R  F U T U R E  C L A S S E S
 
@@ -1034,16 +1034,16 @@ class Signal(BaseObject):
 if __name__ == "__main__":
     host = '192.168.178.242' # URL on LAN of the Z21/DR5000
     layout = Layout(host)
-    c = layout.c # Get layout controller
-    print('Start Z21 controller', c)
-    print('Version', c.version)
-    print('Serial number', c.serialNumber)
-    print('Status',  c.status)
-    print('Hardware type: 0x%04x Firmware type: 0x%04x' % c.hwInfo)
-    c.setTrackPowerOn()
-    c.wait(3)
-    c.setTrackPowerOff()
-    c.close()
+    z21 = layout.z21 # Get layout controller
+    print('Start Z21 controller', z21)
+    print('Version', z21.version)
+    print('Serial number', z21.serialNumber)
+    print('Status',  z21.status)
+    print('Hardware type: 0x%04x Firmware type: 0x%04x' % z21.hwInfo)
+    z21.setTrackPowerOn()
+    z21.wait(3)
+    z21.setTrackPowerOff()
+    z21.close()
     print('Done')
 
 
