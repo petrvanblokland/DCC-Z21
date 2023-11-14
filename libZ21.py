@@ -153,7 +153,7 @@ class Z21:
 
     # Z21: 5 Switching
     LAN_X_GET_TURNOUT_INFO =        CMD(0x08, 0x00, 0x40, 0x00, 0x43) # Add address MSB, address LSB, XOR-Byte, Z21: 5.1
-    LAN_X_SET_TURNOUT =             CMD(0x09, 0x00, 0x40, 0x63) # Add address MSB, address LSB, value-byte, XOR-Byte Z21: 5.2
+    LAN_X_SET_TURNOUT =             CMD(0x09, 0x00, 0x40, 0x00, 0x53) # Add address MSB, address LSB, value-byte, XOR-Byte Z21: 5.2
     # LAN_X_TURNOUT_INFO Z21: 5.3
     # LAN_X_SET_EXT_ACCESSORY Z21: 5.4
     # LAN_X_GET_EXT_ACCESSORY_INFO Z21: 5.5
@@ -715,6 +715,8 @@ class Z21:
             v = 0x88 # 10001000
         cmd = self.LAN_X_SET_TURNOUT + turnoutId.to_bytes(2, BIG_ORDER) + v.to_bytes(1, BIG_ORDER)
         cmd += XOR(cmd[4:])
+        if self.verbose:
+            printCmd(f'setTurnout({turnoutId}): ', cmd)
         self.send(cmd)
 
     #   R E A D  /  W R I T E  C O N F I G U R A T I O N  V A R I A B L E S  ( C V )

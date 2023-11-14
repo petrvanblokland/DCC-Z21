@@ -40,6 +40,7 @@ class Assistant:
         self.w.driveForward = CheckBox((W/2, y, W/2, L), 'Drive Forward', value=True, callback=self.speedUpdateCallback)
         self.w.function01 = CheckBox((M, y, W/2, L), 'Function 01', value=False, callback=self.function01Callback)
         y += L
+        self.w.turnout = CheckBox((W/2, y, W/2, L), 'Lift test track', value=False, callback=self.turnoutCallback)
         self.w.function02 = CheckBox((M, y, W/2, L), 'Function 02', value=False, callback=self.function02Callback)
         y += L
         self.w.function03 = CheckBox((M, y, W/2, L), 'Function 03', value=False, callback=self.function03Callback)
@@ -117,5 +118,9 @@ class Assistant:
 
     def function12Callback(self, sender):
         self.layout.z21.locoFunction(self.loco, 12, sender.get())
-        
+    
+    def turnoutCallback(self, sender):
+        turnoutId = 0 # Lifting loco on test track
+        self.layout.z21.setTurnout(turnoutId, sender.get())
+
 Assistant()
