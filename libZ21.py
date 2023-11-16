@@ -24,7 +24,7 @@ import logging
 import struct
 import sys
 import time
-from socket import socket, timeout, AF_INET, SOCK_STREAM, SOCK_DGRAM
+from socket import * #socket, timeout, AF_INET, SOCK_STREAM, SOCK_DGRAM
 
 VERSION = '0.001'
 
@@ -220,13 +220,15 @@ class Z21:
     # LAN_FAST_CLOCK_SETTINGS_GET Z21: 12.3
     # LAN_FAST_CLOCK_SETTINGS_SET Z21: 12.4
 
-    def __init__(self, host, port=PORT, verbose=False):
+    def __init__(self, host, port=PORT, verbose=False, timeout=0):
         """Constructor of Z21 object, holding the open LAN socket to the Z21/DR5000 controller and offering a 
         more abstract interface to the Z21 commands (or a logical sequence of commands.)"""
         self.host = host
         self.port = port # Port for Z21, default on 
         self.s = socket(AF_INET, SOCK_DGRAM) # Keep the socket opeb, e.g. to the DR5000 device via LAN
         self.s.connect((self.host, self.port))
+        #self.s.setblocking(False) # Don't hang for non-responsive objects on the track.
+        #self.s.settimeout(timeout)
         self.verbose = verbose # Optionally show what it is doing.
 
         # In case it is on, currently still disturbing the reading of other packages.
@@ -1043,7 +1045,13 @@ if __name__ == "__main__":
     print('Status',  z21.status)
     print('Hardware type: 0x%04x Firmware type: 0x%04x' % z21.hwInfo)
     z21.setTrackPowerOn()
-    z21.wait(3)
+    z21.wait(2)
+    for n in [3]: #range(4):
+        #try:
+        print(n, z21.getLocoInfo(n))
+        #except TimeoutError:
+        #    print(n, '---')
+    z21.wait(2)
     z21.setTrackPowerOff()
     z21.close()
     print('Done')

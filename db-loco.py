@@ -12,7 +12,7 @@ from vanilla import *
 from libZ21 import Layout, OFF, ON
 
 HOST = '192.168.178.242' # URL on LAN of the Z21/DR5000
-W, H = 300, 400
+W, H = 300, 440
 M = 16
 CW = 48
 L = 24
@@ -31,6 +31,12 @@ class Assistant:
         y = L/2
         self.w.trackPower = CheckBox((M, y, W/2, L), 'Track Power', value=True, callback=self.trackPowerCallback)
         z21.setTrackPowerOn()
+        locoIds = []
+        for l in range(20):
+            locoIds.append(f'Loco {l}')
+        self.w.locoId = PopUpButton((W/2, y, W/2-M, 24), locoIds, callback=self.locoIdCallback)
+        self.w.locoId.set(self.loco)
+        
         y += 1.5*L
         self.w.volumeSlider = Slider((M, y, -2*M-CW, L), minValue=0, maxValue=192, value=0, continuous=True, 
             tickMarkCount=10, callback=self.volumeUpdateCallback)
@@ -44,10 +50,10 @@ class Assistant:
         self.w.speedText.set('0')        
         y += L
         self.w.driveForward = CheckBox((W/2, y, W/2, L), 'Drive Forward', value=True, callback=self.speedUpdateCallback)
-        self.w.function01 = CheckBox((M, y, W/2, L), 'Function 01', value=False, callback=self.function01Callback)
+        self.w.function01 = CheckBox((M, y, W/2, L), 'Sound (F1)', value=True, callback=self.function01Callback)
         y += L
         self.w.turnout = CheckBox((W/2, y, W/2, L), 'Lift test track', value=False, callback=self.turnoutCallback)
-        self.w.function02 = CheckBox((M, y, W/2, L), 'Function 02', value=False, callback=self.function02Callback)
+        self.w.function02 = CheckBox((M, y, W/2, L), 'Horn (F2)', value=False, callback=self.function02Callback)
         y += L
         self.w.function03 = CheckBox((M, y, W/2, L), 'Function 03', value=False, callback=self.function03Callback)
         y += L
@@ -66,13 +72,21 @@ class Assistant:
         self.w.function10 = CheckBox((M, y, W/2, L), 'Function 10', value=False, callback=self.function10Callback)
         y += L
         self.w.function11 = CheckBox((M, y, W/2, L), 'Function 11', value=False, callback=self.function11Callback)
+        self.w.allLocos = Button((W/2, y, W/2, 24), 'Print all locos', callback=self.allLocosCallback)
         y += L
         self.w.function12 = CheckBox((M, y, W/2, L), 'Function 12', value=False, callback=self.function12Callback)
         self.w.resetDecoder = Button((W/2, y, W/2, 24), 'Reset decoder', callback=self.resetDecoderCallback)
 
         
         self.w.open()
+
+    #    L O C O
     
+    def locoIdCallback(self, sender):
+        self.loco = sender.get()
+        
+    #    S P E E D
+     
     def trackPowerCallback(self, sender):
         if sender.get():
             self.layout.z21.setTrackPowerOn()
@@ -91,6 +105,8 @@ class Assistant:
         self.w.speedSlider.set(int(round(self.w.speedText.get())))
         self.speedUpdateCallback()
 
+    #    F U N C T I O N S
+    
     def function01Callback(self, sender):
         self.layout.z21.locoFunction(self.loco, 1, sender.get())
 
@@ -147,5 +163,10 @@ class Assistant:
         self.w.volumeSlider.set(int(round(self.w.volumeText.get())))
         self.volumeUpdateCallback()
 
-       
+    def allLocosCallback(self, sender):
+        """Answer a list of all locos on the track."""
+        locos = []
+        for loco in range(0, 40):
+            print(loco, self.layout.z21.getLocoInfo(loco))
+                   
 Assistant()
