@@ -32,6 +32,12 @@ class Assistant:
         self.w.trackPower = CheckBox((M, y, W/2, L), 'Track Power', value=True, callback=self.trackPowerCallback)
         z21.setTrackPowerOn()
         y += 1.5*L
+        self.w.volumeSlider = Slider((M, y, -2*M-CW, L), minValue=0, maxValue=192, value=0, continuous=True, 
+            tickMarkCount=10, callback=self.volumeUpdateCallback)
+        self.w.volumeText = EditText((-M-CW, y, CW, L), callback=self.volumeTextCallback)   
+        self.w.volumeText.set('30')    
+            
+        y += 1.5*L
         self.w.speedSlider = Slider((M, y, -2*M-CW, L), minValue=0, maxValue=120, value=0, continuous=True, 
             tickMarkCount=10, callback=self.speedUpdateCallback)
         self.w.speedText = EditText((-M-CW, y, CW, L), callback=self.speedTextCallback)   
@@ -62,7 +68,9 @@ class Assistant:
         self.w.function11 = CheckBox((M, y, W/2, L), 'Function 11', value=False, callback=self.function11Callback)
         y += L
         self.w.function12 = CheckBox((M, y, W/2, L), 'Function 12', value=False, callback=self.function12Callback)
+        self.w.resetDecoder = Button((W/2, y, W/2, 24), 'Reset decoder', callback=self.resetDecoderCallback)
 
+        
         self.w.open()
     
     def trackPowerCallback(self, sender):
@@ -123,4 +131,21 @@ class Assistant:
         turnoutId = 0 # Lifting loco on test track
         self.layout.z21.setTurnout(turnoutId, sender.get())
 
+    def resetDecoderCallback(self, sender):
+        self.layout.z21.resetDecoder()
+        
+        
+    #    S O U N D 
+    
+    def volumeUpdateCallback(self, sender=None):
+        slider = self.w.volumeSlider
+        volume = int(round(slider.get()))
+        self.w.volumeText.set(str(volume))
+        self.layout.z21.cvMasterVolume = volume
+        
+    def volumeTextCallback(self, sender=None):
+        self.w.volumeSlider.set(int(round(self.w.volumeText.get())))
+        self.volumeUpdateCallback()
+
+       
 Assistant()
