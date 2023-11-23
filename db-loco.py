@@ -21,7 +21,7 @@ class Assistant:
     
     def __init__(self):
         self.loco = 3
-        self.layout = Layout(HOST)
+        self.layout = Layout(HOST, verbose=False)
         z21 = self.layout.z21 # Get Z21 Socket controller
         for f in (z21.F0, z21.F1, z21.F2, z21.F3, z21.F4, z21.F5, z21.F6, z21.F7, z21.F8,
                   z21.F9, z21.F10, z21.F11, z21.F12):
@@ -31,6 +31,19 @@ class Assistant:
         y = L/2
         self.w.trackPower = CheckBox((M, y, W/2, L), 'Track Power', value=True, callback=self.trackPowerCallback)
         z21.setTrackPowerOn()
+        #z21.setBreakSoundOn()
+        z21.writeCV(z21.CV_MASTER_VOLUME, 80) # CV53
+        z21.writeCV(z21.CV_DECELERATION, 21) # CV4
+        z21.writeCV(z21.CV_BRAKE_SOUND_ON, 50) # CV64
+        z21.writeCV(z21.CV_BRAKE_SOUND_OFF, 10) # CV65
+        z21.writeCV(259, 100, pageIndex=2) # CV259
+
+        print('CV_MASTER_VOLUME', z21.readCV(z21.CV_MASTER_VOLUME)) # CV53
+        print('CV_DECELERATION', z21.readCV(z21.CV_DECELERATION)) # CV53
+        print('CV_BRAKE_SOUND_ON', z21.readCV(z21.CV_BRAKE_SOUND_ON)) # CV53
+        print('CV_BRAKE_SOUND_OFF', z21.readCV(z21.CV_BRAKE_SOUND_OFF)) # CV53
+        print('CV_BRAKE_VOLUME', z21.readCV(259, pageIndex=2)) # CV53
+
         locoIds = []
         for l in range(20):
             locoIds.append(f'Loco {l}')
@@ -50,10 +63,10 @@ class Assistant:
         self.w.speedText.set('0')        
         y += L
         self.w.driveForward = CheckBox((W/2, y, W/2, L), 'Drive Forward', value=True, callback=self.speedUpdateCallback)
-        self.w.function01 = CheckBox((M, y, W/2, L), 'Sound (F1)', value=True, callback=self.function01Callback)
+        self.w.function01 = CheckBox((M, y, W/2, L), 'Sound (F1)', value=True, callback=self.functionSound01Callback)
         y += L
         self.w.turnout = CheckBox((W/2, y, W/2, L), 'Lift test track', value=False, callback=self.turnoutCallback)
-        self.w.function02 = CheckBox((M, y, W/2, L), 'Horn (F2)', value=False, callback=self.function02Callback)
+        self.w.function02 = CheckBox((M, y, W/2, L), 'Horn (F2)', value=False, callback=self.functionHorn02Callback)
         y += L
         self.w.function03 = CheckBox((M, y, W/2, L), 'Function 03', value=False, callback=self.function03Callback)
         y += L
@@ -107,10 +120,10 @@ class Assistant:
 
     #    F U N C T I O N S
     
-    def function01Callback(self, sender):
+    def functionSound01Callback(self, sender):
         self.layout.z21.locoFunction(self.loco, 1, sender.get())
 
-    def function02Callback(self, sender):
+    def functionHorn02Callback(self, sender):
         self.layout.z21.locoFunction(self.loco, 2, sender.get())
 
     def function03Callback(self, sender):

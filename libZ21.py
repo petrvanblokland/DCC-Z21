@@ -286,8 +286,9 @@ class Z21:
         cmd = self.LAN_X_GET_FIRMWARE_VERSION
         self.send(cmd)
         bb = self.receiveBytes(1024)
-        printCmd('Firmware version (cmd): ', cmd)
-        printCmd('Firmware version (result): ', bb)
+        if self.verbose:
+            printCmd('--- LAN_X_GET_FIRMWARE_VERSION (cmd): ', cmd)
+            printCmd('--- LAN_X_GET_FIRMWARE_VERSION (result): ', bb)
         return '%x.%x' % (bb[6], bb[7])       
     firmwareVersion = property(_get_firmwareVersion)
 
@@ -729,7 +730,7 @@ class Z21:
     CV_LOCO_ADDRESS             = 1 # Address of engine (For Multiprotocol decoders: Range 1-255 for Motorola). Range: 1-127. Default: 3
     CV_START_VOLTAGE            = 2 # Sets the minimum speed of the engine. Range: 1-127. Default: 3
     CV_ACCELERATION             = 3 # This value multiplied by 0.25 is the time from stop to maximum speed. For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 28
-    CV_DECELERATION             = 4 # This value multiplied by 0.25 is the time from maximum speed to stopFor LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
+    CV_DECELERATION             = 4 # This value multiplied by 0.25 is the time from maximum speed to stop For LokSound 5 DCC: The unit is 0.896 seconds. Range: 0-255. Default: 21
     CV_MAXIMUM_SPEED            = 5 # Maximum speed of the engine. Range: 0-255. Default: 255
     CV_MEDIUM_SPEED             = 6 # Medium speed of the engine. Use only if 3-point speed table is enabled. For LokSound 5 DCC only.
     CV_VERSION_NUMBER           = 7 # Internal software version of decoder
@@ -766,6 +767,15 @@ class Z21:
     CV_MASTER_VOLUME            = 63 
     # [LokSound5 only] If the actual loco speed step is smaller than or equals the value indicated here, the brake sound is triggered. 
     # Compare chapter 13.4. Range: 0-255. Default: 60.
+    # 13.4. Adjusting the braking sound threshold
+    # The LokSound decoder is able to play a wheel-synchron brakesound. To play a brake sound, Damit das Bremsgeräusch abgespielt wird, 
+    # there are several conditions necessary:
+    #   •The braking time in CV 4 is set sufficiently high (at least value 20 or higher).
+    #   •The loco drives with high speed at the time of the braking command.
+    #   •The loco receives the driving command “Speed step 0”. The LokSound decoder will now start to play the braking sound at
+    #   the time determined in CV 64. The higher the value in CV 64 is, the sooner the braking sound will be played. The default value 100
+    #   is approximately equivalent to speed step 48 of 128. The braking sound should and when the loco stopps. You are able
+    #   to do some “finetuning” with CV 65, if the loco stops too early.
     CV_BRAKE_SOUND_ON           = 64 
     # [LokSound5 only] If the actual loco speed step is smaller than the one indicated here (up to 255), the brake sound will be switched off again. 
     # Compare chapter 13.4. Range: 0-255. Default: 7.
@@ -840,6 +850,7 @@ class Z21:
     CV_CONSTANT_BRAKE_MODE      = 253 # Determines the constant brake mode. Only active, if CV254 > 0. Range: 0-255. Default: 0.
     CV_CONSTANT_BRAKE_DIST_FORW = 254 # A value > 0 determines the way of brake distance it adheres to, indepen- dent from speed. Range: 0-255. Default: 0.
     CV_CONSTANT_BRAKE_DIST_BACK = 255 # Constant braking distances during reverse driving. Only active, if value > 0, otherwise the value of CV 254 is used. Useful for reversible trains. Range: 0-255. Default: 0.
+    CV_BRAKE_VOLUME             = 259 # Brake sound volume. Range: 0-128. Default: 0.
 
     BLOCK_MAP_CV32 = dict(
         A=3
@@ -873,15 +884,15 @@ class Z21:
         self.send(cmd)
         bb = self.receiveBytes()
         if self.verbose:
-            printCmd(f'LAN_X_CV_READ ', cmd)
-            printCmd(f'{len(bb)} LAN_X_CV_READ (result) ', bb)
+            printCmd(f'LAN_X_CV_READ({cvId}) ', cmd)
+            printCmd(f'{len(bb)} LAN_X_CV_READ({cvId}) (result) ', bb)
 
         # Reset the page index, if it was changed. 
         # This is a bit of overhead, in case multiple CV's are written/read from the same page index.
         if pageIndex and cvId >= 257:
             self.writeCV(self.CV_INDEX_REGISTER_L, 0) # Needs to write in mode pageIndex = 0
 
-        return int.from_bytes(bb[8:9], LITTLE_ORDER)
+        return int(int.from_bytes(bb[8:9], LITTLE_ORDER))
 
     def writeCV(self, cvId, cvValue, pageIndex=0):
         """Write the @cvId @value, assuming that the loco is on a programming track. No loco id is required.
@@ -930,6 +941,7 @@ class Z21:
         self.writeCV(self.CV_ACCELERATION, a)
     cvAcceleration = property(_get_cvAcceleration, _set_cvAcceleration)
 
+    # Used on combination with setBreakSoundOn()
     def _get_cvDeceleration(self):
         return self.readCV(self.CV_DECELERATION)
     def _set_cvDeceleration(self, d):
@@ -961,6 +973,8 @@ class Z21:
 
     def resetDecoder(self):
         """Special case value will reset the LokSound5 decoder to manufacture default values."""
+        if self.verbose:
+            print('--- Resetting decoder')
         self.writeCV(self.CV_MANUFACTURERS_ID, 8) 
 
     def _get_cvMotorPWMFrequenz(self):
@@ -992,6 +1006,13 @@ class Z21:
         self.writeCV(self.CV_BRAKE_SOUND_OFF, bst)
     brakeSoundThresholdOff = property(_get_cvBrakeSoundThresholdOff, _set_cvBrakeSoundThresholdOff)
 
+    # Combined CV settings
+    def setBreakSoundOn(self):
+        self.writeCV(self.CV_DECELERATION, 21) # CV4
+        self.writeCV(self.CV_BRAKE_SOUND_ON, 60) # CV64
+        self.writeCV(self.CV_BRAKE_SOUND_OFF, 10) # CV65
+        self.writeCV(self.CV_BRAKE_VOLUME, 100, pageIndex=2) # CV259
+
 class BaseDecoder:
     """This will contain the knowledge of specific decoders: which functions and CV are supported.
     The Z21 then can query of a train decoder or turnout decoder is capable of performing a certain task.
@@ -1015,7 +1036,7 @@ class Layout:
     """Main Layout objects, containing the tracks and stationary such as all Turnouts and Signals.
     The Layout offers a high-level API to all parts (stationary, locomotives and wagons).
     It also will include the automated schedule to run."""
-    def __init__(self, host, verbose=True):
+    def __init__(self, host, verbose=False):
         self.z21 = Z21(host, verbose=verbose)
 
 #   S K E T C H  O T H E R  F U T U R E  C L A S S E S
@@ -1037,7 +1058,7 @@ class Signal(BaseObject):
 
 if __name__ == "__main__":
     host = '192.168.178.242' # URL on LAN of the Z21/DR5000
-    layout = Layout(host)
+    layout = Layout(host, verbose=True)
     z21 = layout.z21 # Get layout controller
     print('Start Z21 controller', z21)
     print('Version', z21.version)
@@ -1046,11 +1067,19 @@ if __name__ == "__main__":
     print('Hardware type: 0x%04x Firmware type: 0x%04x' % z21.hwInfo)
     z21.setTrackPowerOn()
     z21.wait(2)
-    for n in [3]: #range(4):
-        #try:
-        print(n, z21.getLocoInfo(n))
-        #except TimeoutError:
-        #    print(n, '---')
+    # Adduming loco on programming track
+    z21.writeCV(z21.CV_MASTER_VOLUME, 80) # CV63
+    #z21.writeCV(z21.CV_DECELERATION, 21) # CV4
+    #z21.writeCV(z21.CV_BRAKE_SOUND_ON, 50) # CV64
+    #z21.writeCV(z21.CV_BRAKE_SOUND_OFF, 10) # CV65
+    #z21.writeCV(z21.CV_BRAKE_VOLUME, 100, pageIndex=2) # CV259
+
+    print('CV_MASTER_VOLUME', z21.readCV(z21.CV_MASTER_VOLUME)) # CV63
+    #print('CV_DECELERATION', z21.readCV(z21.CV_DECELERATION)) # CV4
+    #print('CV_BRAKE_SOUND_ON', z21.readCV(z21.CV_BRAKE_SOUND_ON)) # CV64
+    #print('CV_BRAKE_SOUND_OFF', z21.readCV(z21.CV_BRAKE_SOUND_OFF)) # CV65
+    #print('CV_BRAKE_VOLUME', z21.readCV(z21.CV_BRAKE_VOLUME, pageIndex=2)) # CV59
+
     z21.wait(2)
     z21.setTrackPowerOff()
     z21.close()
