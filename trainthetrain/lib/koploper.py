@@ -14,7 +14,7 @@
 # 
 #   Translating the Dutch Koploper names into these terms:
 #   baan.dba
-#   BAAN    Baan            Layout
+#   BAAN    Baan            Layout Collection of “Baan” element
 #   LIJN    Lijn            Track
 #   WISS    Wissel          Point
 #   PBLK    Blok?           Block
@@ -31,13 +31,13 @@
 #   
 #   dvre.dba
 #   kopd.dba
-#   SEIN1
-#   SEIN2
+#   SEIN1   Sein1           Signal1
+#   SEIN2   Sein2           Signal2
 #   N2BRO
 #   SEBE2
 #   SEBE3
-#   BZTM1
-#   BZTM2
+#   BZTM1   Bezetmelder1
+#   BZTM2   Bezetmelder2
 #   BTTT1
 #   BTTT2
 #   BTTT3
@@ -94,7 +94,7 @@ class Baan(File): # Koploper “Baan”
         if vLine[0] == ID_BAAN:
             #BAAN    L   0   Perron 1b   140 300 0   Arial   8   0   FALSE   TRUE    FALSE   FALSE   TRUE    -1  -1  TRUE    
             #8454143 0   0   0   FALSE   FALSE   0   FALSE   FALSE   0   -1  -1  -1  FALSE
-            assert len(line) == self.BAAN_LINE_LENGTH
+            assert len(line) == self.BAAN_LINE_LENGTH, f'BAAN line was {len(line)} excepted {self.BAAN_LINE_LENGTH}'
             self.layout.append(vLine)
         elif vLine[0] == ID_LIJN:
             #LIJN    10  0   218 228 0
@@ -115,6 +115,9 @@ class KoploperIO:
         27
         >>> len(kl.elements[0].tracks)
         76
+        >>> kl = KoploperIO('../docs/koploper/Hennie.bck')
+        >>> kl
+        <KoploperIO ../docs/koploper/Hennie.bck>
         """
         self.read(path) # Read the databse, construct internal data containers.
 
