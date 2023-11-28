@@ -1,6 +1,9 @@
 # DCC-Z21
+
 This repository contains Python sources for connecting to DCC-Z21 equipment such as DR5000 control centers, SwitchPilot-Servo and LokSound5 decoders;
 The sources describe Python classes for typilcal objects and protocols. By importing the classes in environments that run Python (such as scripting from MacOS terminal, DrawBot.com and webbrowsers) it is possible to define model train layouts and operation schedules entirely by code. No other 3rd-party applications are necessary.
+
+All is very much in development, so for now classes, methods and file architecture can still be alteret without notice.
 
 [z21.py] <--- (LAN) ---> [DR5000]  <--- (2-wire rails) ---> [LokSound5]
 
@@ -14,6 +17,7 @@ For questions, additional info and contributions, contact tptr@petr.com
 
 * **z21.py** Contains the main classes and global helper functions
 * **testController.py** Test the basic controller functions, such a track power on/off and overall settings.
+* **TrainTheTrain** contains the ongoing results of a test, to see what would be needed to write an application for (partly) replacing Koploper. If successful this may become a separate repository.
 
 
 ## Interesting references
